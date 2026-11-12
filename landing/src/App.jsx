@@ -1,15 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { money, orderUrl, photo, products, productUrl } from './catalog.js';
+import { money, orderUrl, photo, products, productUrl, siteUrl } from './catalog.js';
 
 function Brand() {
-  return <a className="brand" href="/" aria-label="MyRest kezdőlap">
+  return <a className="brand" href={siteUrl('/')} aria-label="MyRest kezdőlap">
     MyRest
   </a>;
 }
 
 function NavLinks() {
-  return <><a href="/#masszazsfotelek">Masszázsfotelek</a><a href="/#utmutato">Választási útmutató</a>
-    <a href="/#gyik">GYIK</a><a href="/#kapcsolat">Kapcsolat</a></>;
+  return <><a href={siteUrl('/#masszazsfotelek')}>Masszázsfotelek</a><a href={siteUrl('/#utmutato')}>Választási útmutató</a>
+    <a href={siteUrl('/#gyik')}>GYIK</a><a href={siteUrl('/#kapcsolat')}>Kapcsolat</a></>;
 }
 
 function Layout({ children }) {
@@ -20,7 +20,7 @@ function Layout({ children }) {
       <div className="wrap header-row">
         <Brand />
         <nav className="desktop-nav" aria-label="Fő navigáció"><NavLinks /></nav>
-        <a className="header-action" href="/#masszazsfotelek">Fotelek felfedezése</a>
+        <a className="header-action" href={siteUrl('/#masszazsfotelek')}>Fotelek felfedezése</a>
         <button className="menu-toggle" aria-expanded={menuOpen} aria-controls="mobile-nav" onClick={() => setMenuOpen(!menuOpen)}>Menü</button>
       </div>
       <div className="mobile-menu" data-open={menuOpen} inert={menuOpen ? undefined : ''}>
@@ -85,7 +85,7 @@ function Home() {
         <a className="text-link" href="#utmutato">Segítség a választáshoz</a>
       </div>
       <figure className="hero-photo">
-        <img src="/media/hero.webp" width="1440" height="960" fetchpriority="high" alt="Bézs masszázsfotel egy napfényes, világos nappaliban" />
+        <img src={siteUrl('/media/hero.webp')} width="1440" height="960" fetchpriority="high" alt="Bézs masszázsfotel egy napfényes, világos nappaliban" />
 
       </figure>
     </section>
@@ -93,14 +93,14 @@ function Home() {
       <div className="section-head" data-reveal=""><div><h2>Kiemelt masszázsfotelek</h2></div>
         <p>Három modell, különböző masszázsmechanikával. Nézze meg, melyik felel meg az igényeinek.</p></div>
       <div className="catalog">{products.map((product) => <article className="card" data-reveal="" key={product.slug}>
-        <a className="card-photo" href={productUrl(product)} aria-label={product.name + ' részletei'}>
+        <a className="card-photo" href={siteUrl(productUrl(product))} aria-label={product.name + ' részletei'}>
           <img src={photo(product)} alt={product.color + ' masszázsfotel, illusztráció'} width="512" height="512" loading="lazy" />
 
         </a>
         <div className="card-body"><p className="model">iRest · {product.model}</p><h3>{product.name}</h3>
           <p>{product.features.join(' · ')}</p>
           <div className="card-bottom"><div><strong>{money(product.price)}</strong><small>Mintaár</small></div>
-            <a className="button card-action" href={productUrl(product)} aria-label={product.name + ' részleteinek megtekintése'}>Részletek megtekintése</a></div></div>
+            <a className="button card-action" href={siteUrl(productUrl(product))} aria-label={product.name + ' részleteinek megtekintése'}>Részletek megtekintése</a></div></div>
       </article>)}</div>
     </section>
     <section className="guide" id="utmutato"><div className="wrap guide-grid" data-reveal="">
@@ -189,7 +189,7 @@ function Product({ product }) {
   const [viewIndex, setViewIndex] = useState(0);
   const [view, viewLabel] = galleryViews[viewIndex];
   return <div className="wrap inner">
-    <nav aria-label="Útvonal" className="breadcrumb"><a href="/#masszazsfotelek">Masszázsfotelek</a><span> / {product.name}</span></nav>
+    <nav aria-label="Útvonal" className="breadcrumb"><a href={siteUrl('/#masszazsfotelek')}>Masszázsfotelek</a><span> / {product.name}</span></nav>
     <div className="product-grid">
       <section className="product-gallery" aria-label="Termékgaléria">
         <div className="detail-photo"><img src={photo(product, view)} width="512" height="512"
@@ -208,7 +208,7 @@ function Product({ product }) {
           <div><dt>Modellkód</dt><dd>{product.model}</dd></div>
         </dl>
         <p className="price">{money(product.price)} <small>Bruttó mintaár / db</small></p>
-        <form className="product-options" action={orderUrl(product)} method="get">
+        <form className="product-options" action={siteUrl(orderUrl(product))} method="get">
           <h2>Rendelési lehetőségek</h2>
           <div className="product-option">
             <strong>Szín</strong>
@@ -267,7 +267,7 @@ function Order({ product }) {
   }
 
   return <div className="wrap inner">
-    <nav aria-label="Útvonal" className="breadcrumb"><a href={productUrl(product)}>Vissza a termékhez</a></nav>
+    <nav aria-label="Útvonal" className="breadcrumb"><a href={siteUrl(productUrl(product))}>Vissza a termékhez</a></nav>
 
     <h1>{order ? 'Próbarendelés kész' : 'Próbarendelés'}</h1>
     {order ? <section className="receipt" aria-live="polite">
@@ -281,7 +281,7 @@ function Order({ product }) {
         <div><dt>Kedvezményezett</dt><dd>MyRest (minta)</dd></div>
         <div><dt>Bankszámlaszám</dt><dd>Éles konfigurációból kerül ide</dd></div>
         <div><dt>Közlemény</dt><dd>{order.id}</dd></div></dl>
-      <a className="button" href="/#masszazsfotelek">Vissza a fotelekhez</a>
+      <a className="button" href={siteUrl('/#masszazsfotelek')}>Vissza a fotelekhez</a>
     </section> : <>
       <p className="demo-note">Bemutatófelület. Kérjük, használjon mintaadatokat. Az űrlap helyben működik.</p>
       <form className="checkout" method="post" onSubmit={submit}>
@@ -314,6 +314,6 @@ export function App({ page }) {
     {page.kind === 'home' && <Home />}
     {page.kind === 'product' && <Product product={page.product} />}
     {page.kind === 'order' && <Order product={page.product} />}
-    {page.kind === 'missing' && <div className="wrap inner"><h1>Ez az oldal nem található.</h1><a className="button" href="/">Vissza a kezdőlapra</a></div>}
+    {page.kind === 'missing' && <div className="wrap inner"><h1>Ez az oldal nem található.</h1><a className="button" href={siteUrl('/')}>Vissza a kezdőlapra</a></div>}
   </Layout>;
 }

@@ -4,7 +4,8 @@ import { App } from './App.jsx';
 import { getPage, metadata } from './catalog.js';
 import './style.css';
 
-const page = getPage(location.pathname);
+const base = import.meta.env.BASE_URL.slice(0, -1);
+const page = getPage(location.pathname.slice(base.length));
 const meta = metadata(page);
 document.title = meta.title;
 if (!document.querySelector('meta[name="description"]')) {
