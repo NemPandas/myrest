@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { z } from 'zod';
 
 const env = z.object({
@@ -7,6 +8,7 @@ const env = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   APP_ORIGIN: z.url().default('http://localhost:3001'),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+  UPLOAD_DIR: z.string().min(1).default('uploads'),
   DB_HOST: z.string().default('127.0.0.1'),
   DB_PORT: z.coerce.number().int().min(1).max(65535).default(3306),
   DB_NAME: z.string().min(1),
@@ -29,6 +31,7 @@ export const config = {
   origin: origin.origin,
   secureCookie: origin.protocol === 'https:',
   trustProxyHops: env.TRUST_PROXY_HOPS,
+  uploadDir: resolve(env.UPLOAD_DIR),
   database: {
     host: env.DB_HOST,
     port: env.DB_PORT,

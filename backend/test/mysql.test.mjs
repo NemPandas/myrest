@@ -72,6 +72,31 @@ test('admin and catalog API against an empty MySQL test schema', async t => {
   const { cookie: editor, data: editorAccount } = await login(editorInvite.email, editorPassword);
   await request('/admin/users', { cookie: editor }, 403);
 
+  await t.test('uploaded images cannot be deleted while referenced by a product', async () => {
+    const sharp = (await import('sharp')).default;
+    const png = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#336680' } }).png().toBuffer();
+    const form = new FormData();
+    form.append('file', new Blob([png], { type: 'image/png' }), 'chair.png');
+    const uploaded = await fetch(base + '/admin/images', { method: 'POST',
+      headers: { Cookie: editor, Origin: process.env.APP_ORIGIN ?? 'http://localhost:3001' }, body: form });
+    assert.equal(uploaded.status, 201);
+    const image = await uploaded.json();
+    const imagePath = '/admin/images/' + image.filename;
+    const { data: item } = await request('/admin/products', { method: 'POST', cookie: editor, body: {
+      name: 'Képfeltöltés', model_code: 'IMAGE-ASSET', slug: 'image-upload-check',
+      images: [{ url: image.url, alt_text: 'Tesztkép' }],
+    } }, 201);
+    await request(imagePath, { method: 'DELETE', cookie: editor }, 409);
+    await request('/admin/products/' + item.id, { method: 'PATCH', cookie: editor,
+      body: { version: item.version, images: [] } });
+    await request(imagePath, { method: 'DELETE', cookie: editor }, 204);
+    await request('/admin/products/' + item.id, { method: 'PATCH', cookie: editor,
+      body: { version: item.version + 1, images: [{ url: image.url, alt_text: 'Törölt kép' }] } }, 422);
+    await request(image.url.replace(/^\/api/, ''), {}, 404);
+    await request('/admin/products/' + item.id, { method: 'DELETE', cookie: editor,
+      body: { version: item.version + 1 } });
+  });
+
   const product = {
     slug: 'test-chair',
     model_code: 'TEST-1',

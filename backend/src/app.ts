@@ -6,6 +6,7 @@ import { config } from './config.js';
 import { rows, pool } from './db.js';
 import { handleError, HttpError, notFound } from './http.js';
 import { adminProducts, publicProducts } from './products.js';
+import { adminImages, publicImages } from './images.js';
 
 export const app = express();
 
@@ -24,6 +25,7 @@ app.get('/api/health', async (_req, res) => {
 });
 
 app.use('/api/products', publicProducts);
+app.use('/api/media/images', publicImages);
 
 app.use('/api/admin', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
@@ -35,6 +37,7 @@ app.use('/api/admin', (req, res, next) => {
 
 app.use('/api/admin/auth', authRoutes);
 app.use('/api/admin/products', adminProducts);
+app.use('/api/admin/images', adminImages);
 app.use('/api/admin', ownerRoutes);
 app.use(() => notFound());
 app.use(handleError);

@@ -34,21 +34,23 @@ export async function lastInsertId(db: PoolConnection) {
 
 const ownerLockName = 'myrest:owners:' + createHash('sha256')
   .update(config.database.database).digest('hex').slice(0, 40);
+const mediaLockName = 'myrest:media:' + createHash('sha256')
+  .update(config.database.database).digest('hex').slice(0, 40);
 
 export async function transaction<T>(
   work: (connection: PoolConnection) => Promise<T>,
-  options: { ownerLock?: boolean; snapshot?: boolean } = {},
+  options: { ownerLock?: boolean; mediaLock?: boolean; snapshot?: boolean } = {},
 ): Promise<T> {
   const connection = await pool.getConnection();
-  let hasLock = false;
+  const locks: string[] = [];
   let reusable = true;
   try {
-    if (options.ownerLock) {
+    for (const lock of [options.ownerLock && ownerLockName, options.mediaLock && mediaLockName].filter(Boolean) as string[]) {
       const [row] = await rows<{ acquired: string | null }>(
-        connection, 'SELECT CAST(GET_LOCK(?, 5) AS CHAR) AS acquired', [ownerLockName],
+        connection, 'SELECT CAST(GET_LOCK(?, 5) AS CHAR) AS acquired', [lock],
       );
-      if (row.acquired !== '1') conflict('A fiókkezelés foglalt. Próbáld újra.');
-      hasLock = true;
+      if (row.acquired !== '1') conflict('A művelet foglalt. Próbáld újra.');
+      locks.push(lock);
     }
     if (options.snapshot) {
       await connection.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
@@ -68,9 +70,9 @@ export async function transaction<T>(
     throw error;
   } finally {
     try {
-      if (hasLock) {
+      for (const lock of locks.reverse()) {
         const [row] = await rows<{ released: string | null }>(
-          connection, 'SELECT CAST(RELEASE_LOCK(?) AS CHAR) AS released', [ownerLockName],
+          connection, 'SELECT CAST(RELEASE_LOCK(?) AS CHAR) AS released', [lock],
         );
         reusable &&= row.released === '1';
       }

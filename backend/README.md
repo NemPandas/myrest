@@ -18,7 +18,7 @@ A meghívó 24 óráig, a munkamenet 8 óráig érvényes. A létrehozáskor vis
 
 - A publikus és adminlisták `{ items, limit, offset }` alakúak. Az admin terméklista szűrői `status=draft|published`, `deleted=exclude|only|all`, `q` és `order=position|name|updated`.
 - A termékmezők neve megegyezik a séma oszlopnevével. A publikus lista borítója a `cover`, a részlet galériája az `images`. A részlet a `variants` tömbben adja vissza a színeket. A numerikus adatbázis-azonosítók JSON-szövegek.
-- Létrehozáskor a `name`, `model_code` és `slug` kötelező. A `PATCH` a megadott mezőket módosítja. A galéria megadása cseréli a galéria adatait. A változatok kód alapján frissülnek, a kihagyott kódok letiltásra kerülnek. A `variants[].active` alapértéke `true`. Az adatbázis az URL-t és a kép leírását tárolja, a képfájlt a webkiszolgáló vagy a képtároló szolgálja ki.
+- Létrehozáskor a `name`, `model_code` és `slug` kötelező. A `PATCH` a megadott mezőket módosítja. A galéria megadása cseréli a galéria adatait. A változatok kód alapján frissülnek, a kihagyott kódok letiltásra kerülnek. A `variants[].active` alapértéke `true`. Az adatbázis az URL-t és a kép leírását tárolja; a saját képfájlok feltöltését és kiszolgálását az alábbi API végzi. Külső kép-URL továbbra is megadható.
 - Módosításkor, publikáláskor, visszavonáskor, törléskor és visszaállításkor küldd a legutóbb kapott `version` értékét a JSON törzsben. A sikeres válasz az új termékrekordot és verziót adja vissza. `409` esetén az admin újra lekérheti a rekordot.
 - A login, register, invite és a termékírási végpontok JSON-bemenetet fogadnak. A belépés beállítja a munkamenet-cookie-t. A böngésző az azonos originen automatikusan küldi. A `GET /api/admin/auth/me` adja vissza az aktuális fiókot.
 - A hibák `{ error: { code, message, fields? } }` alakban jönnek. Munkamenethiba esetén `401`, jogosultság vagy hibás origin esetén `403`, hiányzó rekordnál `404`, ütközésnél `409`, validációs hibánál `422`, próbálkozási korlátnál `429` a válasz.
@@ -26,3 +26,25 @@ A meghívó 24 óráig, a munkamenet 8 óráig érvényes. A létrehozáskor vis
 ## Integrációs teszt
 
 Hozz létre egy külön, üres, `_test` végződésű adatbázist, és töltsd be a sémát. Add meg az elérését a környezeti változókban vagy az `.env.test` fájlban `NODE_ENV=test` beállítással. Az `npm run test:integration` valódi MySQL-en fut, próbarekordokat hoz létre, és üres admin táblát igényel. Ismétléshez használj friss tesztadatbázist.
+
+## Képfeltöltés és törlés
+
+- `POST /api/admin/images`: bejelentkezett tulajdonos vagy szerkesztő tölthet fel egy képet `multipart/form-data` törzsben, a `file` mezőben. Ne állítsd kézzel a `Content-Type` fejlécet FormData használatakor. A munkamenet-cookie és a helyes `Origin` itt is szükséges.
+- JPEG, PNG és WebP fogadható, legfeljebb 10 MiB fájlmérettel és 40 megapixel felbontással. Animált képek nem fogadhatók. A fájl tényleges tartalmát ellenőrizzük, a kimenet legfeljebb 2560 × 2560 pixelbe illesztett WebP, az eredeti képarány megtartásával, metaadatok nélkül. A fájlnév szerveroldali UUID. Az IP-nkénti feltöltési korlát 30 kérés / 15 perc, API-folyamatonként.
+- Sikeres válasz: `201`, például `{ "filename": "<uuid>.webp", "url": "/api/media/images/<uuid>.webp", "width": 1200, "height": 800, "size": 45678, "mime_type": "image/webp" }`. A `Location` fejléc is tartalmazza az URL-t. A `GET /api/media/images/:filename` nyilvánosan kiszolgálja a képet.
+- A visszakapott `url` értéket add meg a termék `images` tömbjében `alt_text` leírással, a meglévő létrehozási vagy módosítási végponton. A feltöltés önmagában nem módosít terméket. Saját feltöltött képnél a visszakapott relatív URL-t vagy az `APP_ORIGIN` eléírásával képzett teljes URL-t használd, query és hash nélkül.
+- `DELETE /api/admin/images/:filename`: fizikailag törli a feltöltött fájlt, siker esetén `204`. Ha bármely termék galériájában még szerepel (törölt terméknél is), `409` a válasz. Előbb mentsd a termék galériáját a kép nélkül, az aktuális `version` értékkel, majd töröld a fájlt. A galéria cseréje vagy a termék logikai törlése önmagában nem töröl fájlt. Külső képfájlt ez a végpont nem töröl.
+- Hiányzó fájl: `404`; hibás kép vagy multipart: `422`; túl nagy fájl: `413`. A törlés és a galériamentés közös MySQL-zárat használ, így párhuzamos kérés sem kapcsolhat már törölt fájlt termékhez.
+
+```js
+const form = new FormData();
+form.append('file', fileInput.files[0]);
+const response = await fetch('/api/admin/images', { method: 'POST', body: form });
+const image = await response.json(); // Siker esetén image.url menthető a galériába.
+```
+
+A fájlok az `UPLOAD_DIR` könyvtárba kerülnek (alapérték: `uploads`, a backend munkakönyvtárához képest). Élesben állíts be állandó, írható könyvtárat, például `UPLOAD_DIR=/home/deploy/apps/myrest/uploads`, és készíts róla biztonsági mentést az adatbázissal együtt. Több API-példány közös fájltárolót igényel. A meglévő deploy script nem törli a feltöltéseket; adatbázis-migráció nem szükséges.
+
+A reverse proxy az `/api/media/images` útvonalat is továbbítsa a backendnek. Nginxnél például `client_max_body_size 12m;` szükséges a multipart többletével együtt; a backend ettől függetlenül 10 MiB-re korlátozza a képfájlt.
+
+Az `npm run test:images` MySQL nélkül, helyettesített adatbázis-válaszokkal ellenőrzi a HTTP-végpontokat, a tényleges képfeldolgozást és az ideiglenes fájltárolást. A valódi adatbázisos ellenőrzéshez az integrációs teszt szükséges.

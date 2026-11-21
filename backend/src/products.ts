@@ -7,6 +7,7 @@ import { lastInsertId, pool, rows, transaction, write } from './db.js';
 import { conflict, idSchema, invalid, notFound, pageSchema } from './http.js';
 import { createProductBody, productState, slugSchema, updateProductBody, versionBody } from './product-input.js';
 import type { ProductInput } from './product-input.js';
+import { validateStoredImages } from './image-storage.js';
 
 const visible = "status = 'published' AND deleted_at IS NULL";
 const cardColumns = 'id, slug, model_code, name, summary, gross_price_huf, features';
@@ -139,6 +140,7 @@ function productValues(input: ProductInput) {
 
 async function updateChildren(db: PoolConnection, id: string, input: ProductInput) {
   if (input.images !== undefined) {
+    await validateStoredImages(input.images);
     await write(db, 'DELETE FROM product_images WHERE product_id = ?', [id]);
     for (const [index, image] of input.images.entries()) {
       await write(db, `
@@ -220,7 +222,7 @@ adminProducts.post('/', async (req, res) => {
     await updateChildren(db, id, input);
     await audit(db, id, admin, 'create', 1);
     return productDetail(db, id, true);
-  });
+  }, { mediaLock: input.images !== undefined });
   res.status(201).json(product);
 });
 
@@ -245,7 +247,7 @@ adminProducts.patch('/:id', async (req, res) => {
     await write(db, `UPDATE products SET ${assignments.join(', ')} WHERE id = ?`, [...entries.map(entry => entry.value), id]);
     await audit(db, id, admin, 'update', version + 1);
     return productDetail(db, id, true);
-  });
+  }, { mediaLock: input.images !== undefined });
   res.json(product);
 });
 
