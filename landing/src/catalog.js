@@ -8,7 +8,7 @@ export const setProducts = values => { products = values; };
 export function fromApi(record) {
   const variants = (record.variants || []).map(item => ({ ...item, active: !item.disabled_at }));
   const colors = variants.map(item => ({ key: item.color_hex?.toLowerCase() || item.code, name: item.color_name, swatch: item.color_hex || '#edf4f7' }));
-  return { ...record, isAdminProduct: true, model: record.model_code, price: record.gross_price_huf,
+  return { ...record, isAdminProduct: true, model: record.model_code, price: record.currency === 'EUR' ? record.gross_price_eur : record.gross_price_huf,
     level: record.massage_level?.trim().toUpperCase() || '',
     features: record.features || [], specs: (record.specifications || []).map(item => [item.name, item.value]),
     images: record.images || (record.cover ? [record.cover] : []), variants, colors,

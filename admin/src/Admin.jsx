@@ -23,8 +23,8 @@ async function api(path, options = {}) {
   return body;
 }
 const send = (path, body, method = 'POST') => api(path, { method, body: JSON.stringify(body) });
-const translatedFields = ['name', 'summary', 'description', 'features', 'specifications', 'seo_title', 'seo_description'];
-const blankTranslation = () => ({ name: '', summary: '', description: '', features: [], specifications: [], seo_title: '', seo_description: '', image_alts: [], variant_names: [], status: 'draft' });
+const translatedFields = ['gross_price_eur', 'name', 'summary', 'description', 'features', 'specifications', 'seo_title', 'seo_description'];
+const blankTranslation = () => ({ gross_price_eur: '', name: '', summary: '', description: '', features: [], specifications: [], seo_title: '', seo_description: '', image_alts: [], variant_names: [], status: 'draft' });
 function languageDraft(draft, language) {
   if (language === 'hu') return draft;
   const de = draft.translations.de;
@@ -42,6 +42,7 @@ function payload(draft) {
   if (!result.name) result.name = draft.translations.de.name?.trim() || draft.model_code.trim();
   const de = draft.translations.de;
   result.translations = { de: {
+    gross_price_eur: de.gross_price_eur === '' || de.gross_price_eur == null ? null : Number(de.gross_price_eur),
     ...Object.fromEntries(['name', 'summary', 'description', 'seo_title', 'seo_description'].map(key => [key, de[key]?.trim() || null])),
     features: de.features.filter(item => item.trim()),
     specifications: de.specifications.map(({ name, value }) => ({ name, value })),
@@ -58,7 +59,7 @@ function payload(draft) {
 }
 function previewProduct(draft, language) {
   return { ...draft, isAdminProduct: true, name: draft.name || (language === 'de' ? 'Neues Produkt' : 'Új termék'), slug: draft.slug || 'elonezet', model: draft.model_code,
-    price: Number(draft.gross_price_huf), description: draft.description, specs: draft.specifications.map(item => [item.name, item.value]),
+    price: Number(language === 'de' ? draft.gross_price_eur : draft.gross_price_huf), description: draft.description, specs: draft.specifications.map(item => [item.name, item.value]),
     source: draft.source_url, color: draft.variants.find(item => item.active)?.color_name || (language === 'de' ? 'Keine Farbvariante' : 'Nincs színváltozat'), swatch: draft.variants.find(item => item.active)?.color_hex };
 }
 function Auth({ onLogin, initialError }) {
@@ -169,12 +170,12 @@ function Editor({ initial, onSaved, onBack }) {
     <div className="admin-language-tabs" role="group" aria-label="Terméktartalom nyelve">
       {['hu', 'de'].map(lang => <button type="button" key={lang} aria-pressed={language === lang} onClick={() => setLanguage(lang)}>{lang === 'hu' ? 'Magyar' : 'Német'} · {languageDraft(draft, lang).status === 'published' ? 'Közzétéve' : 'Piszkozat'}</button>)}
     </div>
-    <p className="admin-language-note">A szöveges mezők a kiválasztott nyelvhez tartoznak. Az ár, modellkód, URL, képfájlok, színkódok és sorrend közösek.</p>
+    <p className="admin-language-note">A szöveges mezők és az ár a kiválasztott nyelvhez tartoznak: magyarul forintban, németül euróban. A modellkód, URL, képfájlok, színkódok és sorrend közösek.</p>
     {error && <p className="admin-error" role="alert">{error}</p>}{notice && <p className="admin-notice" role="status">{notice}</p>}
     <fieldset disabled={busy}><legend>{language === 'de' ? 'Német tartalom és közös adatok' : 'Magyar tartalom és közös adatok'}</legend><div className="admin-fields">
       {field('name', 'Terméknév', { maxLength: 180 })}{field('model_code', 'Modellkód', { required: true, maxLength: 80 })}
       {field('slug', 'URL-azonosító (pl. flame-3d)', { required: true, pattern: '[a-z0-9]+(-[a-z0-9]+)*', maxLength: 160 })}
-      {field('massage_level', 'Masszázstípus (pl. 4D+)', { maxLength: 40 })}{field('gross_price_huf', 'Bruttó ár (Ft)', { type: 'number', min: 1, max: 4294967295, step: 1 })}
+      {field('massage_level', 'Masszázstípus (pl. 4D+)', { maxLength: 40 })}{field(language === 'de' ? 'gross_price_eur' : 'gross_price_huf', language === 'de' ? 'Bruttó ár (€)' : 'Bruttó ár (Ft)', { type: 'number', min: language === 'de' ? 0.01 : 1, max: 4294967295, step: language === 'de' ? 0.01 : 1 })}
       {field('sort_order', 'Megjelenési sorrend', { type: 'number', min: 0, max: 4294967295, required: true })}
     </div>{field('summary', 'Rövid összefoglaló a listához', { multiline: true, maxLength: 500, rows: 3 })}{field('description', 'Részletes termékleírás', { multiline: true, maxLength: 16000, rows: 8 })}
     </fieldset>
@@ -194,10 +195,45 @@ function Editor({ initial, onSaved, onBack }) {
     <fieldset><legend>{language === 'de' ? 'Német' : 'Magyar'} változat közzététele</legend><p>Először mentsd el a terméket. A másik nyelv állapota nem változik. Közzétételhez összefoglaló, részletes leírás, pozitív ár, leírással ellátott kép és aktív színváltozat szükséges.</p><button type="button" disabled={!draft.id || dirty || busy || uploading} onClick={lifecycle}>{view.status === 'published' ? 'Visszavonás piszkozatba' : 'Termék közzététele'}</button></fieldset>
   </form>{preview && <Preview draft={draft} language={language} mode={preview} close={() => setPreview(null)} />}</>;
 }
+function InviteForm() {
+  const [email, setEmail] = useState('');
+  const [invite, setInvite] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  async function create(event) {
+    event.preventDefault(); setBusy(true); setError(''); setNotice('');
+    try { setInvite(await send('/invites', { email: email.trim(), role: 'editor' })); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+  async function copy() {
+    setNotice('');
+    try { await navigator.clipboard.writeText(invite.token); setNotice('A meghívókódot kimásoltuk.'); }
+    catch { setNotice('A másolás nem sikerült. Jelöld ki és másold ki a kódot a mezőből.'); }
+  }
+  return <section className="admin-invite" aria-labelledby="invite-title">
+    <h2 id="invite-title">Új szerkesztő meghívása</h2>
+    <p>A meghívott termékeket kezelhet. A kód egyszer használható, 24 óráig érvényes, és a megadott e-mail-címhez tartozik.</p>
+    <form onSubmit={create} className="admin-actions">
+      <label>Meghívott e-mail-címe<input type="email" required maxLength={254} autoComplete="off" value={email} disabled={busy} onChange={e => setEmail(e.target.value)} /></label>
+      <button type="submit" disabled={busy}>{busy ? 'Létrehozás…' : 'Meghívókód létrehozása'}</button>
+    </form>
+    {error && <p className="admin-error" role="alert">{error}</p>}
+    {invite && <div className="admin-invite-result">
+      <p><strong>{invite.email}</strong> részére elkészült a meghívó. Regisztrációkor ezt az e-mail-címet és az alábbi kódot kell megadni.</p>
+      <label>Meghívókód<input readOnly value={invite.token} onFocus={e => e.target.select()} /></label>
+      <button type="button" onClick={copy}>Kód másolása</button>
+      <p>A kódot most mentsd el vagy add át a meghívottnak; később nem jeleníthető meg újra.</p>
+    </div>}
+    {notice && <p role="status">{notice}</p>}
+  </section>;
+}
 export function Admin() {
   const [admin, setAdmin] = useState(null); const [checking, setChecking] = useState(true); const [error, setError] = useState('');
   const [items, setItems] = useState([]); const [loading, setLoading] = useState(false); const [editor, setEditor] = useState(null);
   const [filterLanguage, setFilterLanguage] = useState('hu');
+  const [showInvite, setShowInvite] = useState(false);
   const [query, setQuery] = useState(''); const [status, setStatus] = useState(''); const [offset, setOffset] = useState(0); const [refresh, setRefresh] = useState(0);
   useEffect(() => { api('/auth/me').then(setAdmin).catch(e => { if (e.status !== 401) setError(e.message); }).finally(() => setChecking(false)); }, []);
   useEffect(() => {
@@ -207,15 +243,16 @@ export function Admin() {
     return () => { active = false; };
   }, [admin, query, status, offset, refresh, filterLanguage]);
   async function open(item) { setError(''); setLoading(true); try { setEditor(await api('/products/' + item.id)); } catch (e) { setError(e.message); } finally { setLoading(false); } }
-  async function logout() { try { await send('/auth/logout', {}); setAdmin(null); setEditor(null); } catch (e) { setError(e.message); } }
+  async function logout() { try { await send('/auth/logout', {}); setAdmin(null); setEditor(null); setShowInvite(false); } catch (e) { setError(e.message); } }
   if (checking) return <main className="admin-auth" role="status">Munkamenet ellenőrzése…</main>;
   if (!admin) return <Auth onLogin={setAdmin} initialError={error} />;
   return <div className="admin-shell"><header className="admin-header"><a className="brand" href={siteUrl('/')}>MyRest</a><strong>Termékkezelés</strong><span>{admin.email}</span>{!editor && <button onClick={logout}>Kijelentkezés</button>}</header>
     <main className="admin-main">{editor ? <Editor key={editor.id || 'new'} initial={editor.id ? editor : null} onBack={() => setEditor(null)} onSaved={() => setRefresh(value => value + 1)} /> : <>
-      <div className="admin-title"><div><h1>Termékek</h1><p>Hozd létre és szerkeszd a kínálatot.</p></div><button className="button" onClick={() => setEditor({})}>Új termék</button></div>
+      <div className="admin-title"><div><h1>Termékek</h1><p>Hozd létre és szerkeszd a kínálatot.</p></div><div className="admin-actions">{admin.role === 'owner' && <button type="button" aria-expanded={showInvite} aria-controls="admin-invite-panel" onClick={() => setShowInvite(value => !value)}>Meghívó készítése</button>}<button className="button" onClick={() => setEditor({})}>Új termék</button></div></div>
+      {admin.role === 'owner' && showInvite && <div id="admin-invite-panel"><InviteForm /></div>}
       <div className="admin-filters"><label>Keresés<input type="search" placeholder="Név, modellkód vagy URL" value={query} onChange={e => { setQuery(e.target.value); setOffset(0); }} /></label><label>Állapot nyelve<select value={filterLanguage} onChange={e => { setFilterLanguage(e.target.value); setOffset(0); }}><option value="hu">Magyar</option><option value="de">Német</option></select></label><label>Állapot<select value={status} onChange={e => { setStatus(e.target.value); setOffset(0); }}><option value="">Összes</option><option value="draft">Piszkozat</option><option value="published">Közzétéve</option></select></label></div>
       {error && <p className="admin-error" role="alert">{error} <button onClick={() => setRefresh(value => value + 1)}>Újrapróbálás</button></p>}
-      {loading ? <p role="status">Betöltés…</p> : <div className="admin-list">{items.length ? items.map(item => <article key={item.id}><div><h2>{item.name}</h2><p>{item.model_code} · HU: {item.status === 'published' ? 'Közzétéve' : 'Piszkozat'} · DE: {item.german_status === 'published' ? 'Közzétéve' : 'Piszkozat'}</p></div><strong>{item.gross_price_huf ? money(item.gross_price_huf) : 'Nincs ár'}</strong><button onClick={() => open(item)}>Szerkesztés</button></article>) : <p>Nincs megjeleníthető termék.</p>}</div>}
+      {loading ? <p role="status">Betöltés…</p> : <div className="admin-list">{items.length ? items.map(item => <article key={item.id}><div><h2>{item.name}</h2><p>{item.model_code} · HU: {item.status === 'published' ? 'Közzétéve' : 'Piszkozat'} · DE: {item.german_status === 'published' ? 'Közzétéve' : 'Piszkozat'}</p></div><strong>{(filterLanguage === 'de' ? Number(item.gross_price_eur) : item.gross_price_huf) ? money(filterLanguage === 'de' ? Number(item.gross_price_eur) : item.gross_price_huf, filterLanguage) : 'Nincs ár'}</strong><button onClick={() => open(item)}>Szerkesztés</button></article>) : <p>Nincs megjeleníthető termék.</p>}</div>}
       <div className="admin-actions"><button disabled={!offset || loading} onClick={() => setOffset(offset - 20)}>Előző oldal</button><span>{offset / 20 + 1}. oldal</span><button disabled={items.length < 20 || loading} onClick={() => setOffset(offset + 20)}>Következő oldal</button></div>
     </>}</main></div>;
 }

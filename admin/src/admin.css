@@ -4,3 +4,12 @@
 .admin-language-tabs { display:flex; gap:12px; flex-wrap:wrap; }
 .admin-language-tabs button[aria-pressed="true"] { background:var(--brand); color:white; border-color:var(--brand); }
 .admin-language-note { font-size:.85rem; margin:0; }
+
+.admin-invite { background:white; border:1px solid var(--line); border-radius:12px; padding:24px; margin-bottom:24px; }
+.admin-invite h2 { margin-top:0; }
+.admin-invite p { font-size:.85rem; overflow-wrap:anywhere; }
+.admin-invite form { align-items:end; }
+.admin-invite form label { flex:1; min-width:min(100%,240px); }
+.admin-invite-result { display:grid; gap:12px; margin-top:20px; }
+.admin-invite-result input { font-family:monospace; }
+.admin-invite-result button { justify-self:start; }

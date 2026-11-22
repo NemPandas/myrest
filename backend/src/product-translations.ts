@@ -15,10 +15,10 @@ export async function saveGerman(db: PoolConnection, id: string, content: Transl
   await write(db, `INSERT INTO product_translations (product_id, content) VALUES (?, ?)
     ON DUPLICATE KEY UPDATE content = ?`, [id, JSON.stringify(content), JSON.stringify(content)]);
 }
-export async function validateGerman(db: PoolConnection, id: string, price: number | null) {
+export async function validateGerman(db: PoolConnection, id: string) {
   const translation = await germanTranslation(db, id);
-  if (!translation?.name?.trim() || !translation.summary?.trim() || !translation.description?.trim() || !price) {
-    invalid('A német közzétételhez német terméknév, összefoglaló, leírás és pozitív közös ár szükséges.');
+  if (!translation?.name?.trim() || !translation.summary?.trim() || !translation.description?.trim() || !translation.gross_price_eur) {
+    invalid('A német közzétételhez német terméknév, összefoglaló, leírás és pozitív eurós ár szükséges.');
   }
   const images = await rows<{ url: string }>(db, 'SELECT url FROM product_images WHERE product_id = ?', [id]);
   if (!images.length || images.some(image => !translation.image_alts.find(item => item.url === image.url)?.alt_text?.trim())) {
@@ -31,7 +31,7 @@ export async function validateGerman(db: PoolConnection, id: string, price: numb
 }
 export function localizeGerman<T extends { cover?: { url: string; alt_text: string } | null; images?: { url: string; alt_text: string }[]; variants?: { code: string; color_name: string }[] }>(product: T, translation: Translation) {
   const imageAlt = (url: string) => translation.image_alts.find(item => item.url === url)?.alt_text || '';
-  return { ...product, name: translation.name, summary: translation.summary, description: translation.description,
+  return { ...product, gross_price_eur: translation.gross_price_eur ?? null, currency: 'EUR', name: translation.name, summary: translation.summary, description: translation.description,
     features: translation.features, specifications: translation.specifications, seo_title: translation.seo_title,
     seo_description: translation.seo_description,
     ...(product.cover ? { cover: { ...product.cover, alt_text: imageAlt(product.cover.url) } } : {}),

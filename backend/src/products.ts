@@ -122,7 +122,8 @@ adminProducts.get('/', async (req, res) => {
   const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
   const items = await rows(pool, `
     SELECT ${cardColumns}, status, sort_order, version, deleted_at, updated_at,
-      COALESCE((SELECT status FROM product_translations t WHERE t.product_id = products.id), 'draft') AS german_status FROM products
+      COALESCE((SELECT status FROM product_translations t WHERE t.product_id = products.id), 'draft') AS german_status,
+      (SELECT JSON_EXTRACT(t.content, '$.gross_price_eur') FROM product_translations t WHERE t.product_id = products.id) AS gross_price_eur FROM products
     ${where} ORDER BY ${ordering[order]}, id LIMIT ? OFFSET ?
   `, [...parameters, limit, offset]);
   res.json({ items, limit, offset });
@@ -260,7 +261,7 @@ adminProducts.patch('/:id', async (req, res) => {
     await updateChildren(db, id, input);
     if (current.status === 'published') await validatePublication(db, { ...current, ...input });
     const german = await germanTranslation(db, id);
-    if (german?.status === 'published') await validateGerman(db, id, input.gross_price_huf !== undefined ? input.gross_price_huf : current.gross_price_huf);
+    if (german?.status === 'published') await validateGerman(db, id);
     const entries = productValues(input);
     const assignments = entries.map(entry => entry.column + ' = ?');
     assignments.push('version = version + 1', 'updated_at = UTC_TIMESTAMP(6)');
@@ -295,7 +296,7 @@ function transition(action: Lifecycle) {
         conflict('A termék már a kért állapotban van.');
       }
       if (action === 'publish') {
-        if (language === 'de') await validateGerman(db, id, current.gross_price_huf);
+        if (language === 'de') await validateGerman(db, id);
         else await validatePublication(db, current);
       }
       if (language === 'de' && ['publish', 'unpublish'].includes(action)) {

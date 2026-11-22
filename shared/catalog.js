@@ -8,6 +8,6 @@ export const siteUrl = (path) => {
 };
 export const photo = (product, view = 'front') => product.isAdminProduct ? (product.images?.[Number(view) || 0]?.url || '') : siteUrl('/media/' + product.slug + '-' + view + '.webp');
 export const money = (value, language = getLocale()) => new Intl.NumberFormat(language === 'de' ? 'de-DE' : 'hu-HU', {
-  style: 'currency', currency: 'HUF', maximumFractionDigits: 0,
+  style: 'currency', currency: language === 'de' ? 'EUR' : 'HUF', minimumFractionDigits: language === 'de' ? 2 : 0, maximumFractionDigits: language === 'de' ? 2 : 0,
 }).format(value);
 

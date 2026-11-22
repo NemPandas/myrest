@@ -168,7 +168,7 @@ test('admin and catalog API against an empty MySQL test schema', async t => {
     await action('publish', 1, 'de', 422);
     await action('publish', 1, 'hu');
     await request('/products/bilingual-chair?lang=de', {}, 404);
-    const german = { name: 'Deutscher Sessel', summary: 'Kurze Beschreibung', description: 'Deutscher Text',
+    const german = { gross_price_eur: 1299.95, name: 'Deutscher Sessel', summary: 'Kurze Beschreibung', description: 'Deutscher Text',
       features: ['Rückenwärme'], specifications: [{ name: 'Höhe', value: '120 cm' }],
       seo_title: 'Deutscher SEO-Titel', seo_description: 'Deutsche SEO-Beschreibung',
       image_alts: body.images.map(image => ({ url: image.url, alt_text: 'Sesselansicht' })),
@@ -182,7 +182,9 @@ test('admin and catalog API against an empty MySQL test schema', async t => {
     const { data: de } = await request('/products/bilingual-chair?lang=de');
     assert.equal(de.name, german.name);
     assert.equal(de.description, german.description);
-    assert.equal(de.gross_price_huf, product.gross_price_huf);
+    assert.equal(de.gross_price_eur, 1299.95);
+    assert.equal(de.currency, 'EUR');
+    assert.equal((await request('/products/bilingual-chair?lang=hu')).data.gross_price_huf, product.gross_price_huf);
     assert.equal(de.images[0].alt_text, 'Sesselansicht');
     assert.equal(de.variants[0].color_name, 'Graphit');
     assert.equal(de.variants[0].id, saved.variants[0].id);

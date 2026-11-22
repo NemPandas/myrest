@@ -25,3 +25,14 @@ test('empty or punctuation-only codes report a Hungarian field error', () => {
   assert.deepEqual(result.error.issues[0].path, ['variants', 0, 'code']);
   assert.match(result.error.issues[0].message, /Adj meg egy változatkódot/);
 });
+
+
+test('German prices are independent euro amounts with cent precision', () => {
+  const body = { ...product([]), gross_price_huf: 500000, translations: { de: { gross_price_eur: 1299.95 } } };
+  const parsed = createProductBody.parse(body);
+  assert.equal(parsed.translations.de.gross_price_eur, 1299.95);
+  assert.equal(parsed.gross_price_huf, 500000);
+  for (const price of [0, -1, 1.001]) {
+    assert.equal(createProductBody.safeParse({ ...body, translations: { de: { gross_price_eur: price } } }).success, false);
+  }
+});

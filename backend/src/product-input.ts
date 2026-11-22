@@ -39,6 +39,7 @@ export const productLanguage = z.enum(['hu', 'de']);
 export const localizedVersionBody = versionBody.extend({ language: productLanguage.default('hu') });
 const optionalText = (max: number) => text(max).nullable().default(null);
 export const translationBody = z.strictObject({
+  gross_price_eur: z.number().min(0.01).max(4294967295).multipleOf(0.01).nullable().default(null),
   name: optionalText(180),
   summary: optionalText(500),
   description: optionalText(16000),
