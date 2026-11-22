@@ -1,3 +1,4 @@
+import { localeRoutes } from './locale.js';
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
@@ -13,6 +14,8 @@ export const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', config.trustProxyHops);
 app.use(helmet({ strictTransportSecurity: config.secureCookie ? undefined : false }));
+
+app.use('/api/locale', localeRoutes);
 
 app.get('/api/health', async (_req, res) => {
   res.set('Cache-Control', 'no-store');

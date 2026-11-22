@@ -46,3 +46,11 @@ sudo install -d -m 755 -o deploy -g deploy /var/www/myrest/admin /var/www/myrest
 ```
 
 A `backend/deploy/myrest-ip.nginx.conf` frissített konfigurációja a landing `current` könyvtárát a `/`, az adminét az `/admin/` útvonalon szolgálja ki. A landing feltöltője a gyökérútvonalra buildel, a GitHub Pages beállításától függetlenül. Ha az admint az IP-címen nyitod meg, a backend `.env` fájljában az `APP_ORIGINS` listába a `http://165.22.115.165` origint is vedd fel, majd `pm2 restart myrest-backend --update-env`.
+
+## Magyar és német nyelv
+
+A `/hu/` és `/de/` útvonalakon előre renderelt főoldal, termékoldalak és próbarendelés található, fordított metaadatokkal, képleírásokkal és hreflang linkekkel. A magyar forrásszövegekhez tartozó német szótár: `shared/locales/de.json`. A közös termékkomponensek az admin magyar előnézetét is megőrzik. A német nézet is HUF-ot használ, nincs árfolyamváltás.
+
+Nyelvi előtag nélküli URL első megnyitásakor a mentett kézi választás élvez elsőbbséget. Ennek hiányában az `/api/locale` az IP országkódja alapján választ: HU → magyar, minden más ország → német. A keresés a backend helyi GeoIP adatbázisával működik, nem küldi el a látogató IP-jét külső szolgáltatónak. Az IP-adatbázis becslés, VPN esetén a kilépési ország számít. Ismeretlen IP → német; API-hiba/időtúllépés esetén a böngésző magyar nyelve → magyar, egyébként német. Közvetlen `/hu/` vagy `/de/` linket nem ír felül az automatikus választás. A HU/DE kapcsoló a választást localStorage-ban tárolja.
+
+A backend szerver `.env` fájljában a mellékelt Nginx mögött `TRUST_PROXY_HOPS=1` szükséges. Az Nginx felülírja az X-Forwarded-For fejlécet a valódi klienscímmel. A 3001-es port maradjon loopbacken. Más proxylánc esetén ehhez igazítsd a bizalmi beállítást. A GeoIP adatokat a rögzített `geoip-country` csomag tartalmazza; frissítésükhöz rendszeresen frissítsd ezt a függőséget és telepítsd újra a backendet. A csomag és az adatbázis licencfeltételei a csomag LICENSE/EULA fájljaiban szerepelnek.

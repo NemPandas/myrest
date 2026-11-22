@@ -1,1 +1,7 @@
 @import "../../shared/storefront.css";
+
+.language-switcher { display:flex; gap:4px; flex-shrink:0; }
+.language-switcher a { font-size:.8rem; padding:8px; border-radius:6px; text-decoration:none; }
+.language-switcher a[aria-current="page"] { background:var(--brand); color:white; }
+.language-switcher a:hover { text-decoration:underline; }
+@media(min-width:701px) { .header-row { flex-wrap:wrap; gap:14px; } }
