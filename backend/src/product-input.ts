@@ -11,13 +11,13 @@ export const versionBody = z.strictObject({ version: unsigned.min(1) });
 
 const image = z.strictObject({
   url: imageUrl,
-  alt_text: text(255),
+  alt_text: z.string().trim().max(255),
   sort_order: unsigned.optional(),
 });
 
 const variant = z.strictObject({
   code: text(80).regex(/^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$/).toUpperCase(),
-  color_name: text(100),
+  color_name: z.string().trim().max(100),
   color_hex: z.string().regex(/^#[a-fA-F0-9]{6}$/).nullable().default(null),
   sort_order: unsigned.optional(),
   active: z.boolean().default(true),
@@ -28,7 +28,26 @@ const variantList = z.array(variant).max(100).refine(
   'A változatkódoknak egyedieknek kell lenniük.',
 );
 
+export const productLanguage = z.enum(['hu', 'de']);
+export const localizedVersionBody = versionBody.extend({ language: productLanguage.default('hu') });
+const optionalText = (max: number) => text(max).nullable().default(null);
+export const translationBody = z.strictObject({
+  name: optionalText(180),
+  summary: optionalText(500),
+  description: optionalText(16000),
+  features: z.array(text(250)).max(100).default([]),
+  specifications: z.array(z.strictObject({ name: text(120), value: text(500) })).max(100).default([]),
+  seo_title: optionalText(180),
+  seo_description: optionalText(320),
+  image_alts: z.array(z.strictObject({ url: imageUrl, alt_text: text(255).nullable() })).max(100).default([]),
+  variant_names: z.array(z.strictObject({ code: text(80).toUpperCase(), color_name: text(100).nullable() })).max(100).default([]),
+}).superRefine((value, ctx) => {
+  if (new Set(value.image_alts.map(item => item.url)).size !== value.image_alts.length) ctx.addIssue({ code: 'custom', message: 'A kép URL-eknek egyedieknek kell lenniük.', path: ['image_alts'] });
+  if (new Set(value.variant_names.map(item => item.code)).size !== value.variant_names.length) ctx.addIssue({ code: 'custom', message: 'A változatkódoknak egyedieknek kell lenniük.', path: ['variant_names'] });
+});
+
 const productFields = z.strictObject({
+  translations: z.strictObject({ de: translationBody }).optional(),
   name: text(180),
   model_code: text(80),
   slug: slugSchema,

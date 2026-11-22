@@ -1,3 +1,4 @@
+import { germanTranslation, saveGerman, validateGerman, localizeGerman } from './product-translations.js';
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import type { PoolConnection } from 'mysql2/promise';
@@ -5,11 +6,14 @@ import { z } from 'zod';
 import { currentAdmin, requireAdmin } from './accounts.js';
 import { lastInsertId, pool, rows, transaction, write } from './db.js';
 import { conflict, idSchema, invalid, notFound, pageSchema } from './http.js';
-import { createProductBody, productState, slugSchema, updateProductBody, versionBody } from './product-input.js';
+import { createProductBody, productState, slugSchema, updateProductBody, localizedVersionBody, productLanguage } from './product-input.js';
 import type { ProductInput } from './product-input.js';
 import { validateStoredImages } from './image-storage.js';
 
 const visible = "status = 'published' AND deleted_at IS NULL";
+const visibleFor = (language: string) => language === 'de'
+  ? "deleted_at IS NULL AND EXISTS (SELECT 1 FROM product_translations t WHERE t.product_id = products.id AND t.status = 'published')"
+  : visible;
 const cardColumns = 'id, slug, model_code, name, summary, gross_price_huf, features';
 const detailColumns = cardColumns + ', massage_level, description, specifications, source_url, seo_title, seo_description';
 const adminColumns = detailColumns + ', status, sort_order, version, deleted_at, created_at, updated_at';
@@ -27,10 +31,10 @@ type Product = {
   gross_price_huf: number | null;
 };
 
-async function productDetail(db: PoolConnection, key: string, admin: boolean) {
+async function productDetail(db: PoolConnection, key: string, admin: boolean, language = 'hu') {
   const [product] = admin
     ? await rows<Pick<Product, 'id'>>(db, `SELECT ${adminColumns} FROM products WHERE id = ?`, [key])
-    : await rows<Pick<Product, 'id'>>(db, `SELECT ${detailColumns} FROM products WHERE slug = ? AND ${visible}`, [key]);
+    : await rows<Pick<Product, 'id'>>(db, `SELECT ${detailColumns} FROM products WHERE slug = ? AND ${visibleFor(language)}`, [key]);
   if (!product) notFound();
   const { id } = product;
   const images = await rows(db, `
@@ -41,16 +45,22 @@ async function productDetail(db: PoolConnection, key: string, admin: boolean) {
     FROM product_variants WHERE product_id = ? ${admin ? '' : 'AND disabled_at IS NULL'}
     ORDER BY sort_order, id
   `, [id]);
-  return { ...product, images, variants };
+  const german = await germanTranslation(db, id);
+  const result = { ...product, images, variants };
+  if (admin) return { ...result, translations: { de: german } };
+  return language === 'de' && german ? localizeGerman(result as typeof result & {
+    images: { url: string; alt_text: string }[]; variants: { code: string; color_name: string }[];
+  }, german) : result;
 }
 
 export const publicProducts = Router();
 
 publicProducts.get('/', async (req, res) => {
+  const language = productLanguage.default('hu').parse(req.query.lang);
   const { limit, offset } = pageSchema.parse(req.query);
   const items = await transaction(async db => {
     const products = await rows<Pick<Product, 'id'>>(db, `
-      SELECT ${cardColumns} FROM products WHERE ${visible} ORDER BY sort_order, id LIMIT ? OFFSET ?
+      SELECT ${cardColumns} FROM products WHERE ${visibleFor(language)} ORDER BY sort_order, id LIMIT ? OFFSET ?
     `, [limit, offset]);
     if (!products.length) return [];
     const ids = products.map(product => product.id);
@@ -62,15 +72,20 @@ publicProducts.get('/', async (req, res) => {
       ) ranked WHERE image_rank = 1
     `, ids);
     const coverByProduct = new Map(covers.map(({ product_id, ...image }) => [product_id, image]));
-    return products.map(product => ({ ...product, cover: coverByProduct.get(product.id) ?? null }));
+    return Promise.all(products.map(async product => {
+      const result = { ...product, cover: coverByProduct.get(product.id) ?? null };
+      const german = language === 'de' ? await germanTranslation(db, product.id) : null;
+      return german ? localizeGerman(result, german) : result;
+    }));
   }, { snapshot: true });
   res.json({ items, limit, offset });
 });
 
 publicProducts.get('/:slug', async (req, res) => {
+  const language = productLanguage.default('hu').parse(req.query.lang);
   const slug = slugSchema.safeParse(req.params.slug);
   if (!slug.success) notFound();
-  res.json(await transaction(db => productDetail(db, slug.data, false), { snapshot: true }));
+  res.json(await transaction(db => productDetail(db, slug.data, false, language), { snapshot: true }));
 });
 
 export const adminProducts = Router();
@@ -83,6 +98,7 @@ const ordering = {
 };
 
 const adminQuery = pageSchema.extend({
+  language: productLanguage.default('hu'),
   status: productState.optional(),
   deleted: z.enum(['exclude', 'only', 'all']).default('exclude'),
   q: z.string().trim().max(180).optional(),
@@ -90,22 +106,23 @@ const adminQuery = pageSchema.extend({
 });
 
 adminProducts.get('/', async (req, res) => {
-  const { limit, offset, status, deleted, q, order } = adminQuery.parse(req.query);
+  const { limit, offset, status, deleted, q, order, language } = adminQuery.parse(req.query);
   const conditions: string[] = [];
   const parameters: string[] = [];
   if (deleted !== 'all') conditions.push(deleted === 'only' ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL');
   if (status) {
-    conditions.push('status = ?');
+    conditions.push(language === 'de' ? "COALESCE((SELECT status FROM product_translations t WHERE t.product_id = products.id), 'draft') = ?" : 'status = ?');
     parameters.push(status);
   }
   if (q) {
     const pattern = '%' + q.replace(/[!%_]/g, '!$&') + '%';
-    conditions.push("(name LIKE ? ESCAPE '!' OR slug LIKE ? ESCAPE '!' OR model_code LIKE ? ESCAPE '!')");
-    parameters.push(pattern, pattern, pattern);
+    conditions.push("(name LIKE ? ESCAPE '!' OR slug LIKE ? ESCAPE '!' OR model_code LIKE ? ESCAPE '!' OR EXISTS (SELECT 1 FROM product_translations t WHERE t.product_id = products.id AND JSON_UNQUOTE(JSON_EXTRACT(t.content, '$.name')) LIKE ? ESCAPE '!'))");
+    parameters.push(pattern, pattern, pattern, pattern);
   }
   const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
   const items = await rows(pool, `
-    SELECT ${cardColumns}, status, sort_order, version, deleted_at, updated_at FROM products
+    SELECT ${cardColumns}, status, sort_order, version, deleted_at, updated_at,
+      COALESCE((SELECT status FROM product_translations t WHERE t.product_id = products.id), 'draft') AS german_status FROM products
     ${where} ORDER BY ${ordering[order]}, id LIMIT ? OFFSET ?
   `, [...parameters, limit, offset]);
   res.json({ items, limit, offset });
@@ -131,7 +148,7 @@ adminProducts.get('/:id/audit', async (req, res) => {
 });
 
 function productValues(input: ProductInput) {
-  const { images: _images, variants: _variants, ...fields } = input;
+  const { images: _images, variants: _variants, translations: _translations, ...fields } = input;
   return Object.entries(fields).map(([column, value]) => ({
     column,
     value: value != null && (column === 'features' || column === 'specifications') ? JSON.stringify(value) : value,
@@ -139,6 +156,7 @@ function productValues(input: ProductInput) {
 }
 
 async function updateChildren(db: PoolConnection, id: string, input: ProductInput) {
+  if (input.translations) await saveGerman(db, id, input.translations.de);
   if (input.images !== undefined) {
     await validateStoredImages(input.images);
     await write(db, 'DELETE FROM product_images WHERE product_id = ?', [id]);
@@ -204,7 +222,7 @@ async function validatePublication(db: PoolConnection, product: Product) {
   `, [product.id]);
   if (!image) invalid('A közzétételhez legalább egy kép szükséges alternatív szöveggel.');
   const [variant] = await rows(db, `
-    SELECT id FROM product_variants WHERE product_id = ? AND disabled_at IS NULL LIMIT 1
+    SELECT id FROM product_variants WHERE product_id = ? AND disabled_at IS NULL AND TRIM(color_name) <> '' LIMIT 1
   `, [product.id]);
   if (!variant) invalid('A közzétételhez legalább egy aktív változat szükséges.');
 }
@@ -241,6 +259,8 @@ adminProducts.patch('/:id', async (req, res) => {
     }
     await updateChildren(db, id, input);
     if (current.status === 'published') await validatePublication(db, { ...current, ...input });
+    const german = await germanTranslation(db, id);
+    if (german?.status === 'published') await validateGerman(db, id, input.gross_price_huf !== undefined ? input.gross_price_huf : current.gross_price_huf);
     const entries = productValues(input);
     const assignments = entries.map(entry => entry.column + ' = ?');
     assignments.push('version = version + 1', 'updated_at = UTC_TIMESTAMP(6)');
@@ -261,20 +281,29 @@ const transitions: Record<Lifecycle, string> = {
 function transition(action: Lifecycle) {
   return async (req: Request, res: Response) => {
     const id = idSchema.parse(req.params.id);
-    const { version } = versionBody.parse(req.body);
+    const { version, language } = localizedVersionBody.parse(req.body);
     const admin = currentAdmin(res).id;
     const result = await transaction(async db => {
       const current = await editable(db, id, version);
       if (action === 'restore' ? !current.deleted_at : current.deleted_at) {
         conflict('A művelet a termék jelenlegi törlési állapotában nem érhető el.');
       }
-      if (action === 'publish' && current.status === 'published' ||
-          action === 'unpublish' && current.status === 'draft') {
+      const german = language === 'de' ? await germanTranslation(db, id) : null;
+      const status = language === 'de' ? german?.status || 'draft' : current.status;
+      if (action === 'publish' && status === 'published' ||
+          action === 'unpublish' && status === 'draft') {
         conflict('A termék már a kért állapotban van.');
       }
-      if (action === 'publish') await validatePublication(db, current);
+      if (action === 'publish') {
+        if (language === 'de') await validateGerman(db, id, current.gross_price_huf);
+        else await validatePublication(db, current);
+      }
+      if (language === 'de' && ['publish', 'unpublish'].includes(action)) {
+        await write(db, 'UPDATE product_translations SET status = ? WHERE product_id = ?', [action === 'publish' ? 'published' : 'draft', id]);
+      }
+      if (action === 'delete') await write(db, "UPDATE product_translations SET status = 'draft' WHERE product_id = ?", [id]);
       await write(db, `
-        UPDATE products SET ${transitions[action]}, version = version + 1, updated_at = UTC_TIMESTAMP(6) WHERE id = ?
+        UPDATE products SET ${language === 'de' && ['publish', 'unpublish'].includes(action) ? 'id = id' : transitions[action]}, version = version + 1, updated_at = UTC_TIMESTAMP(6) WHERE id = ?
       `, [id]);
       await audit(db, id, admin, action, version + 1);
       return productDetail(db, id, true);

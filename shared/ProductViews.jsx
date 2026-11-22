@@ -1,22 +1,24 @@
-import { t } from './i18n.js';
+import { useLocale, useTranslation } from './I18nContext.jsx';
 import React, { useState } from 'react';
 import { money, orderUrl, photo, productUrl, siteUrl } from './catalog.js';
 
 export function ProductCard({ product, preview = false }) {
+  const t = useTranslation();
+  const language = useLocale();
   return <article className="card">
     <a className="card-photo" href={siteUrl(productUrl(product))} onClick={preview ? e => e.preventDefault() : undefined} aria-label={product.name + t(' részletei')}>
       {photo(product) ? <img src={photo(product)} alt={product.images?.[0]?.alt_text || product.color + t(' masszázsfotel')} width="512" height="512" loading="lazy" /> : <div className="empty-photo">{t("Még nincs termékkép")}</div>}
     </a>
     <div className="card-body"><p className="model">iRest · {product.model}</p><h3>{product.name}</h3>
       <p>{product.summary || product.features.join(' · ')}</p>
-      <div className="card-bottom"><div><strong>{product.price ? money(product.price) : t('Ár nincs megadva')}</strong><small>{product.isAdminProduct ? t('Bruttó ár') : t('Mintaár')}</small></div>
+      <div className="card-bottom"><div><strong>{product.price ? money(product.price, language) : t('Ár nincs megadva')}</strong><small>{product.isAdminProduct ? t('Bruttó ár') : t('Mintaár')}</small></div>
         <a className="button card-action" href={siteUrl(productUrl(product))} onClick={preview ? e => e.preventDefault() : undefined}>{t("Részletek megtekintése")}</a></div></div>
   </article>;
 }
 
-const galleryViews = () => [['front', t('Elölnézet')], ['side', t('Oldalnézet')]];
-const detailTabs = () => [['description', t('Leírás')], ['documents', t('Dokumentumok')], ['reviews', t('Vélemények')]];
-const detailSections = () => [
+const galleryViews = t => [['front', t('Elölnézet')], ['side', t('Oldalnézet')]];
+const detailTabs = t => [['description', t('Leírás')], ['documents', t('Dokumentumok')], ['reviews', t('Vélemények')]];
+const detailSections = t => [
   ['funkciok', t('Funkciók és tulajdonságok')],
   ['muszaki-adatok', t('Méretek és műszaki adatok')],
   ['garancia', t('Garancia')],
@@ -25,32 +27,33 @@ const detailSections = () => [
 ];
 
 function ProductDetails({ product }) {
+  const t = useTranslation();
   const [tab, setTab] = useState('description');
 
   function navigateTabs(event, index) {
-    const last = detailTabs().length - 1;
+    const last = detailTabs(t).length - 1;
     const next = {
-      ArrowLeft: (index + last) % detailTabs().length,
-      ArrowRight: (index + 1) % detailTabs().length,
+      ArrowLeft: (index + last) % detailTabs(t).length,
+      ArrowRight: (index + 1) % detailTabs(t).length,
       Home: 0,
       End: last,
     }[event.key];
     if (typeof next !== 'number') return;
     event.preventDefault();
-    setTab(detailTabs()[next][0]);
+    setTab(detailTabs(t)[next][0]);
     event.currentTarget.parentElement.children[next].focus();
   }
 
   return <section className="product-details" aria-label={t("Termékrészletek")}>
     <div className="detail-tabs" role="tablist" aria-label={t("Termékinformációk")}>
-      {detailTabs().map(([id, label], index) => <button type="button" role="tab" key={id} id={'tab-' + id}
+      {detailTabs(t).map(([id, label], index) => <button type="button" role="tab" key={id} id={'tab-' + id}
         aria-controls={'panel-' + id} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1}
         onClick={() => setTab(id)} onKeyDown={(event) => navigateTabs(event, index)}>{label}</button>)}
     </div>
     <div className="detail-panel" role="tabpanel" id="panel-description" aria-labelledby="tab-description"
       tabIndex={0} hidden={tab !== 'description'}>
       <nav className="detail-index" aria-label={t("A leírás tartalma")}>
-        <ul>{detailSections().map(([id, title]) => <li key={id}><a href={'#' + id} onClick={event => { event.preventDefault(); event.currentTarget.ownerDocument.getElementById(id)?.scrollIntoView({ block: 'start' }); }}>{title}</a></li>)}</ul>
+        <ul>{detailSections(t).map(([id, title]) => <li key={id}><a href={'#' + id} onClick={event => { event.preventDefault(); event.currentTarget.ownerDocument.getElementById(id)?.scrollIntoView({ block: 'start' }); }}>{title}</a></li>)}</ul>
       </nav>
       <section id="funkciok">
         <h2>{t("Funkciók és tulajdonságok")}</h2>
@@ -79,8 +82,10 @@ function ProductDetails({ product }) {
 }
 
 export function Product({ product, preview = false }) {
+  const t = useTranslation();
+  const language = useLocale();
   const [viewIndex, setViewIndex] = useState(0);
-  const views = product.images?.length ? product.images.map((image, index) => [String(index), image.alt_text]) : product.isAdminProduct ? [] : galleryViews();
+  const views = product.images?.length ? product.images.map((image, index) => [String(index), image.alt_text]) : product.isAdminProduct ? [] : galleryViews(t);
   const [view, viewLabel] = views[viewIndex] || views[0] || ['', ''];
   const [variantIndex, setVariantIndex] = useState(0);
   const variants = product.variants?.filter(item => item.active !== false && !item.disabled_at) || [];
@@ -105,7 +110,7 @@ export function Product({ product, preview = false }) {
           <div><dt>{t("Modellkód")}</dt><dd>{product.model}</dd></div>
           {product.massage_level && <div><dt>{t("Masszázstípus")}</dt><dd>{product.massage_level}</dd></div>}
         </dl>
-        <p className="price">{product.price ? money(product.price) : t('Ár nincs megadva')} <small>{product.isAdminProduct ? t('Bruttó ár / db') : t('Bruttó mintaár / db')}</small></p>
+        <p className="price">{product.price ? money(product.price, language) : t('Ár nincs megadva')} <small>{product.isAdminProduct ? t('Bruttó ár / db') : t('Bruttó mintaár / db')}</small></p>
         <form className="product-options" action={siteUrl(orderUrl(product))} method="get" onSubmit={preview ? e => e.preventDefault() : undefined}>
           <h2>{t("Rendelési lehetőségek")}</h2>
           <div className="product-option">

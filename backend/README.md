@@ -48,3 +48,13 @@ A fájlok az `UPLOAD_DIR` könyvtárba kerülnek (alapérték: `uploads`, a back
 A reverse proxy az `/api/media/images` útvonalat is továbbítsa a backendnek. Nginxnél például `client_max_body_size 12m;` szükséges a multipart többletével együtt; a backend ettől függetlenül 10 MiB-re korlátozza a képfájlt.
 
 Az `npm run test:images` MySQL nélkül, helyettesített adatbázis-válaszokkal ellenőrzi a HTTP-végpontokat, a tényleges képfeldolgozást és az ideiglenes fájltárolást. A valódi adatbázisos ellenőrzéshez az integrációs teszt szükséges.
+
+## Kétnyelvű termékek és migráció
+
+Új telepítésnél a `schema.sql` már tartalmazza a `product_translations` táblát. Meglévő adatbázison a `migrations/001-product-translations.sql` futtatandó CREATE-jogú felhasználóval **a friss backend telepítése előtt**. A migráció ismételhető, és nem írja át a termékeket. A korábbi mezők őrzik a magyar tartalmat és állapotot; a kapcsolt tábla a német tartalmat és külön közzétételi állapotot tárolja. A normál alkalmazás adatbázis-felhasználójának nem kell CREATE-jogot adni.
+
+Az admin termékmentés opcionális `translations.de` objektumot fogad: `name`, `summary`, `description`, `features`, `specifications`, `seo_title`, `seo_description`, `image_alts: [{url, alt_text}]`, `variant_names: [{code, color_name}]`. A hiányzó német fordítás draftnak számít. A `status` nem írható mentéskor. A képleírások kép-URL, a színnevek normalizált változatkód alapján kapcsolódnak, így a sorrend módosítása megőrzi a hozzárendelést. A közös képek URL-jének vagy változatkódjának adminbeli átírása a fordítás kulcsát is frissíti.
+
+A `POST /api/admin/products/:id/publish` és `/unpublish` bemenete `{version, language: "hu" | "de"}`; elhagyott nyelvnél a HU kompatibilis működés marad. A közös verzió és terméksorszintű zárolás minden nyelvi és közös módosításra érvényes. A két nyelv életciklusműveletei is a meglévő auditnaplóban kapnak termékverziót.
+
+Publikus API: `GET /api/products?lang=hu` vagy `?lang=de`, illetve `GET /api/products/:slug?lang=de`. Alapértelmezés HU. Csak a kért nyelven közzétett, nem törölt termék jelenik meg; nincs magyar tartalomra visszaesés a német válaszban. A nyelvi szűrés a lapozás előtt történik. A képek és színváltozatok azonosítói és közös adatai mindkét nyelven azonosak.

@@ -7,7 +7,7 @@ export const siteUrl = (path) => {
   return base + localized.slice(1);
 };
 export const photo = (product, view = 'front') => product.isAdminProduct ? (product.images?.[Number(view) || 0]?.url || '') : siteUrl('/media/' + product.slug + '-' + view + '.webp');
-export const money = (value) => new Intl.NumberFormat(getLocale() === 'de' ? 'de-DE' : 'hu-HU', {
+export const money = (value, language = getLocale()) => new Intl.NumberFormat(language === 'de' ? 'de-DE' : 'hu-HU', {
   style: 'currency', currency: 'HUF', maximumFractionDigits: 0,
 }).format(value);
 

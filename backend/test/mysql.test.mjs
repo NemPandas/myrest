@@ -157,6 +157,59 @@ test('admin and catalog API against an empty MySQL test schema', async t => {
     'restore', 'delete', 'unpublish', 'update', 'update', 'publish', 'create',
   ]);
 
+  await t.test('Hungarian and German content publish independently without cross-language fallback', async () => {
+    const body = { ...product, slug: 'bilingual-chair', model_code: 'I18N-1', name: 'Magyar fotel',
+      translations: { de: { name: 'Deutscher Sessel' } } };
+    const { data: created } = await request('/admin/products', { method: 'POST', cookie: editor, body }, 201);
+    const endpoint = '/admin/products/' + created.id;
+    const edit = (body, status = 200) => request(endpoint, { method: 'PATCH', cookie: editor, body }, status);
+    const action = (name, version, language, status = 200) => request(endpoint + '/' + name,
+      { method: 'POST', cookie: editor, body: { version, language } }, status);
+    await action('publish', 1, 'de', 422);
+    await action('publish', 1, 'hu');
+    await request('/products/bilingual-chair?lang=de', {}, 404);
+    const german = { name: 'Deutscher Sessel', summary: 'Kurze Beschreibung', description: 'Deutscher Text',
+      features: ['Rückenwärme'], specifications: [{ name: 'Höhe', value: '120 cm' }],
+      seo_title: 'Deutscher SEO-Titel', seo_description: 'Deutsche SEO-Beschreibung',
+      image_alts: body.images.map(image => ({ url: image.url, alt_text: 'Sesselansicht' })),
+      variant_names: [{ code: 'graphite', color_name: 'Graphit' }] };
+    await edit({ version: 2, translations: { de: { ...german, status: 'published' } } }, 422);
+    const { data: saved } = await edit({ version: 2, translations: { de: german } });
+    assert.equal(saved.name, 'Magyar fotel');
+    assert.equal(saved.images[0].alt_text, 'Elölről');
+    assert.equal(saved.translations.de.status, 'draft');
+    await action('publish', 3, 'de');
+    const { data: de } = await request('/products/bilingual-chair?lang=de');
+    assert.equal(de.name, german.name);
+    assert.equal(de.description, german.description);
+    assert.equal(de.gross_price_huf, product.gross_price_huf);
+    assert.equal(de.images[0].alt_text, 'Sesselansicht');
+    assert.equal(de.variants[0].color_name, 'Graphit');
+    assert.equal(de.variants[0].id, saved.variants[0].id);
+    assert.equal((await request('/products/bilingual-chair?lang=hu')).data.name, 'Magyar fotel');
+    assert.equal((await request('/products?lang=de')).data.items[0].cover.alt_text, 'Sesselansicht');
+    await edit({ version: 4, translations: { de: { ...german, summary: null } } }, 422);
+    await edit({ version: 4, images: [] }, 422);
+    assert.equal((await request(endpoint, { cookie: editor })).data.version, 4);
+    await action('unpublish', 4, 'hu');
+    await request('/products/bilingual-chair?lang=hu', {}, 404);
+    await request('/products/bilingual-chair?lang=de');
+    await edit({ version: 5, variants: [{ code: 'NEW', color_name: '' }] }, 422);
+    await action('unpublish', 4, 'de', 409);
+    const { data: list } = await request('/admin/products?language=de&status=published&q=Deutscher', { cookie: editor });
+    assert.equal(list.items[0].id, created.id);
+    await action('unpublish', 5, 'de');
+    await request('/products/bilingual-chair?lang=de', {}, 404);
+    await action('publish', 6, 'de');
+    await request(endpoint, { method: 'DELETE', cookie: editor, body: { version: 7 } });
+    await request('/products/bilingual-chair?lang=de', {}, 404);
+    const { data: restored } = await action('restore', 8, 'hu');
+    assert.equal(restored.status, 'draft');
+    assert.equal(restored.translations.de.status, 'draft');
+    await request('/products?lang=en', {}, 422);
+    await request(endpoint + '/publish', { method: 'POST', cookie: editor, body: { version: 9, language: 'en' } }, 422);
+  });
+
   const editorPath = '/admin/users/' + editorAccount.id;
   await request(editorPath, { method: 'PATCH', cookie: owner, body: { role: 'owner' } });
   await request('/admin/auth/me', { cookie: editor }, 401);

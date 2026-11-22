@@ -70,3 +70,13 @@ sudo install -d -m 755 -o deploy -g deploy /var/www/myrest/admin /var/www/myrest
 ```
 
 A `backend/deploy/myrest-ip.nginx.conf` frissített konfigurációja a landing `current` könyvtárát a `/`, az adminét az `/admin/` útvonalon szolgálja ki. A landing feltöltője a gyökérútvonalra buildel, a GitHub Pages beállításától függetlenül. Ha az admint az IP-címen nyitod meg, a backend `.env` fájljában az `APP_ORIGINS` listába a `http://165.22.115.165` origint is vedd fel, majd `pm2 restart myrest-backend --update-env`.
+
+## Magyar és német terméktartalom
+
+Egy terméknek közös az ára, modellkódja, URL-azonosítója, masszázstípusa, sorrendje, forráslinkje, képfájljai, változatkódjai és színkódjai. A Magyar / Német fülek alatt külön szerkeszthető a név, összefoglaló, leírás, funkciólista, műszaki adatok szövege, SEO-cím és SEO-leírás. A képleírás és a szín neve szintén nyelvfüggő. A mentés mindkét nyelv módosításait egy tranzakcióban menti; a fülváltás nem veszít el adatot.
+
+Mindkét előnézet az aktuális nyelvet és a még nem mentett adatokat mutatja. A nyelvi kapcsoló melletti állapot és a közzététel gomb csak a kiválasztott nyelvre vonatkozik. Közzététel előtt menteni kell. A német publikáláshoz név, összefoglaló, leírás, pozitív közös ár, legalább egy kép német képleírásokkal és az összes aktív színváltozat német neve szükséges. Közzétett változatot érvénytelenítő módosítás mentése visszautasításra kerül; ilyenkor előbb vondd vissza az érintett nyelvet. A termék törlése mindkét nyelvet visszavonja; visszaállításkor mindkettő piszkozat marad.
+
+A terméklistában külön HU és DE állapot látszik, az állapotszűrő nyelve kiválasztható, a keresés mindkét nyelv nevét figyeli. A modellneveket és szövegeket az admin nem fordítja automatikusan: a német tartalmat külön kell megadni.
+
+A landing továbbra is a meglévő mock katalógust használja. A mentett termékek nyelvhelyes publikus API-ja rendelkezésre áll, a landing élő katalógusra kötése külön lépés.
