@@ -1,3 +1,6 @@
+import { productUrl, orderUrl } from '../../shared/catalog.js';
+export { productUrl, orderUrl, siteUrl, photo, money } from '../../shared/catalog.js';
+
 export const products = [
   {
     slug: 'flame-3d', name: 'Flame 3D', model: 'SL-A2801', level: '3D',
@@ -24,14 +27,6 @@ export const products = [
     source: 'https://bionwell.hu/ultimate-dc-premium-5d-masszazsfotel',
   },
 ];
-
-export const productUrl = (product) => '/masszazsfotelek/' + product.slug + '/';
-export const orderUrl = (product) => productUrl(product) + 'rendeles/';
-export const siteUrl = (path) => import.meta.env.BASE_URL + path.slice(1);
-export const photo = (product, view = 'front') => siteUrl('/media/' + product.slug + '-' + view + '.webp');
-export const money = (value) => new Intl.NumberFormat('hu-HU', {
-  style: 'currency', currency: 'HUF', maximumFractionDigits: 0,
-}).format(value);
 
 export function getPage(pathname) {
   const path = pathname.replace(/\/+$/, '');
