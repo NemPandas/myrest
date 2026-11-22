@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+server="165.22.115.165"
+user="deploy"
+remote="/var/www/myrest/landing"
+
+# Run in Git Bash with npm and OpenSSH available, like uploader-backend.sh.
+for tool in npm ssh scp; do
+  command -v "$tool" >/dev/null 2>&1 || {
+    echo "Missing command: $tool. Add Node.js and OpenSSH to PATH." >&2
+    exit 1
+  }
+done
+
+# Prevent Git Bash/MSYS from converting the URL base / into a Windows path.
+MSYS2_ENV_CONV_EXCL=MYREST_BASE_PATH MYREST_BASE_PATH=/ npm run build
+[[ -f dist/index.html ]] || { echo 'Build has no dist/index.html.' >&2; exit 1; }
+
+auth=(-o PasswordAuthentication=no -o KbdInteractiveAuthentication=no)
+if [[ -n "${DEPLOY_KEY:-}" ]]; then
+  [[ -f "$DEPLOY_KEY" ]] || { echo "SSH key file not found: $DEPLOY_KEY" >&2; exit 1; }
+  auth+=(-i "$DEPLOY_KEY" -o IdentitiesOnly=yes)
+fi
+
+# One-time server setup (sudo required):
+# sudo install -d -m 755 -o deploy -g deploy /var/www/myrest/landing
+# Upload into a new directory; switch current only after a successful transfer.
+release=$(ssh "${auth[@]}" "$user@$server" "set -e
+if [ ! -d '$remote' ] || [ ! -w '$remote' ]; then
+  echo 'Run on the server first: sudo install -d -m 755 -o deploy -g deploy $remote' >&2
+  exit 1
+fi
+mkdir -p '$remote/releases'
+mktemp -d '$remote/releases/release.XXXXXXXX'")
+[[ "$release" == "$remote/releases/release."* && "$release" != *$'\n'* ]] || {
+  echo 'Unexpected release directory returned by SSH.' >&2; exit 1;
+}
+scp "${auth[@]}" -r dist/. "$user@$server:$release/"
+ssh "${auth[@]}" "$user@$server" "set -e
+chmod -R a+rX '$release'
+ln -s '$release' '$release.link'
+mv -Tf '$release.link' '$remote/current'"
+echo 'Uploaded landing: http://165.22.115.165/'
+echo 'Nginx must be configured using backend/deploy/myrest-ip.nginx.conf.'
+# Previous releases are kept for rollback. No .env or source files are uploaded.

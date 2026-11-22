@@ -7,6 +7,7 @@ const env = z.object({
   HOST: z.string().default('127.0.0.1'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   APP_ORIGIN: z.url().default('http://localhost:3001'),
+  APP_ORIGINS: z.string().default(''),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
   UPLOAD_DIR: z.string().min(1).default('uploads'),
   DB_HOST: z.string().default('127.0.0.1'),
@@ -25,7 +26,16 @@ if (env.NODE_ENV === 'production' && origin.protocol !== 'https:') {
   throw new Error('APP_ORIGIN must use HTTPS in production.');
 }
 
+const allowedOrigins = [env.APP_ORIGIN, ...env.APP_ORIGINS.split(',').map(value => value.trim()).filter(Boolean)];
+for (const value of allowedOrigins) {
+  const url = new URL(value);
+  if (url.origin !== value || !['http:', 'https:'].includes(url.protocol) || (env.NODE_ENV === 'production' && url.protocol !== 'https:')) {
+    throw new Error('APP_ORIGINS must contain HTTP(S) origins; production requires HTTPS.');
+  }
+}
+
 export const config = {
+  allowedOrigins,
   host: env.HOST,
   port: env.PORT,
   origin: origin.origin,

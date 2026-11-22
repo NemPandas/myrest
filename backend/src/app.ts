@@ -29,8 +29,8 @@ app.use('/api/media/images', publicImages);
 
 app.use('/api/admin', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('Origin') !== config.origin) {
-    throw new HttpError(403, 'invalid_origin', 'A kérés forrása nem engedélyezett.');
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !config.allowedOrigins.includes(req.get('Origin') || '')) {
+    throw new HttpError(403, 'invalid_origin', 'A kĂ©rĂ©s forrĂˇsa nem engedĂ©lyezett.');
   }
   next();
 }, express.json({ limit: '512kb' }), cookieParser());

@@ -1,15 +1,17 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig({
-  base: '/admin/',
-  resolve: { dedupe: ['react', 'react-dom'] },
-  define: {
-    'import.meta.env.VITE_STOREFRONT_BASE': JSON.stringify(process.env.VITE_STOREFRONT_BASE || '/'),
-  },
-  server: {
-    port: 5174,
-    strictPort: true,
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const proxy = { '/api': { target: env.MYREST_API_TARGET || 'http://localhost:3001', changeOrigin: true } };
+  return {
+    base: '/admin/',
+    resolve: { dedupe: ['react', 'react-dom'] },
+    server: {
+      port: 5174,
+      strictPort: true,
     fs: { allow: ['..'] },
-    proxy: { '/api': { target: process.env.MYREST_API_TARGET || 'http://localhost:3001' } },
-  },
+      proxy,
+    },
+    preview: { proxy },
+  };
 });
