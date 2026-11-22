@@ -57,8 +57,8 @@ export function metadata(page) {
     description: page.product.seo_description || page.product.summary || page.product.description || '',
   };
   if (page.kind === 'order') return {
-    title: t('Próbarendelés – ') + page.product.name + ' | MyRest',
-    description: t('Banki átutalásos próbarendelés a MyRest bemutatófelületén.'),
+    title: t('Rendelés – ') + page.product.name + ' | MyRest',
+    description: t('MyRest rendelés banki átutalásos fizetéssel.'),
   };
   if (page.kind === 'missing') return { title: t('Az oldal nem található | MyRest'), description: '' };
   return {

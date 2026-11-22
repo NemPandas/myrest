@@ -58,3 +58,27 @@ Az admin termékmentés opcionális `translations.de` objektumot fogad: `name`, 
 A `POST /api/admin/products/:id/publish` és `/unpublish` bemenete `{version, language: "hu" | "de"}`; elhagyott nyelvnél a HU kompatibilis működés marad. A közös verzió és terméksorszintű zárolás minden nyelvi és közös módosításra érvényes. A két nyelv életciklusműveletei is a meglévő auditnaplóban kapnak termékverziót.
 
 Publikus API: `GET /api/products?lang=hu` vagy `?lang=de`, illetve `GET /api/products/:slug?lang=de`. Alapértelmezés HU. Csak a kért nyelven közzétett, nem törölt termék jelenik meg; nincs magyar tartalomra visszaesés a német válaszban. A nyelvi szűrés a lapozás előtt történik. A képek és színváltozatok azonosítói és közös adatai mindkét nyelven azonosak.
+
+
+## Brevo order confirmations
+
+Apply `migrations/002-orders.sql` once to an existing database (fresh installs use `schema.sql`). Set the backend-only variables in `.env.example`: `BREVO_API_KEY`, verified `EMAIL_FROM`, `EMAIL_FROM_NAME`, `ORDER_NOTIFY_EMAIL`, `BANK_BENEFICIARY`, `BANK_ACCOUNT` (use an IBAN suitable for EUR transfers), optional `BANK_BIC`, and approved `ORDER_SHIPPING_HUF` / `ORDER_SHIPPING_EUR`. Checkout and admin order records work without email or bank configuration. Shipping defaults to 0 in each currency until configured. Email jobs are created only for orders placed while the complete email and bank configuration is present; earlier orders are not emailed retroactively. Never expose the API key in frontend environment variables.
+
+The API server automatically checks the persistent email queue every 30 seconds when email and bank settings are configured. Each batch processes up to 20 emails; failures remain queued and retry after five minutes. `npm run emails:send` also runs one batch manually from the backend directory. Startup always checks the order tables. The customer receives Hungarian or German content according to the submitted storefront locale, and the owner receives a separate Hungarian notification. Product names, variants, prices, currency, addresses and bank details are persisted at checkout; prices and active variants are validated by the server. EUR prices come from the published German translation. The acknowledgement confirms receipt, not payment.
+
+When emails are enabled, the order is committed with both email jobs before returning success. Repeating an identical request key returns the existing order. Brevo idempotency headers reduce duplicate sends on ambiguous transport errors; provider deduplication has a limited retention window, so delivery cannot be guaranteed exactly once across long outages. Do not automatically reset sent jobs.
+
+Verify deployment with a real test order in each locale: inspect saved order totals and both queued jobs, run the worker, and check both inboxes. API success means Brevo accepted a message; inbox delivery requires monitoring in Brevo. No live emails are sent by the automated tests.
+
+Brevo API reference: https://developers.brevo.com/reference/send-transac-email
+
+
+## Admin rendeléslista és mentés
+
+Meglévő adatbázison futtasd a `migrations/002-orders.sql` migrációt a backend frissítése előtt. Az új telepítés `schema.sql` fájlja ezt is tartalmazza. A migráció újrafuttatható; a meglévő rendeléseket megőrzi. A rendelésmentéshez nem kell Brevo- vagy banki környezeti változó. A szállítási díj beállítás nélkül 0, az űrlap ezt az összeget mutatja. Emailbeállítás nélkül a visszaigazolás csak a sikeres mentést jelzi.
+
+Az admin **Rendelések** menüpontja a `/admin/rendelesek/` oldalon érhető el, a belépett tulajdonosok és szerkesztők számára. A legújabb rendelés látszik elöl, 20 elem/oldal lapozással; név, email, termék, modell vagy azonosító alapján lehet keresni, nyelvre és állapotra lehet szűrni. A részletek a rendeléskori terméket, változatot, mennyiséget, árat, pénznemet, vásárlói adatokat és mindkét címet mutatják. A termék későbbi módosítása nem írja át a mentett rendelést. Az időpont UTC-ben mentődik és az adminban Europe/Budapest időzónában jelenik meg.
+
+Védett végpontok: `GET /api/admin/orders?limit=20&offset=0&q=...&language=hu&status=awaiting_transfer`, illetve `GET /api/admin/orders/:id`. A listaválasz `{items, hasMore}`, a részletes válasz az emailfeladatok állapotát is tartalmazza. Fizetési állapot módosítása egyelőre nincs a felületen.
+
+Az `npm run test:orders` a HTTP-végpontokat helyettesített MySQL I/O-val teszteli: mentés emailbeállítás nélkül, ismételt beküldés, hibás ár és változat elutasítása, mentési hiba, magyar/német pillanatkép, adminhozzáférés, lapozás és részletek. Valódi MySQL-ellenőrzéshez az `npm run test:integration` használható külön üres tesztadatbázison.

@@ -1,3 +1,4 @@
+import { VariantPicker } from './VariantPicker.jsx';
 import { useLocale, useTranslation } from './I18nContext.jsx';
 import React, { useState } from 'react';
 import { money, orderUrl, photo, productUrl, siteUrl } from './catalog.js';
@@ -66,7 +67,7 @@ function ProductDetails({ product }) {
       </section>
       <section id="garancia"><h2>{t("Garancia")}</h2><p>{t("A végleges garanciális feltételek az éles induláskor lesznek elérhetők.")}</p></section>
       <section id="kiszallitas"><h2>{t("Kiszállítás és beüzemelés")}</h2><p>{t("A szállítási és beüzemelési feltételek az éles induláskor lesznek elérhetők.")}</p></section>
-      <section id="fizetes"><h2>{t("Fizetés és megrendelés")}</h2><p>{t("A próbarendelés a banki átutalásos rendelési folyamatot mutatja be.")}</p></section>
+      <section id="fizetes"><h2>{t("Fizetés és megrendelés")}</h2><p>{t("A rendelés fizetési módja banki átutalás. A fizetés részleteit a rendelés rögzítése után egyeztetjük.")}</p></section>
     </div>
     <div className="detail-panel" role="tabpanel" id="panel-documents" aria-labelledby="tab-documents"
       tabIndex={0} hidden={tab !== 'documents'}>
@@ -113,10 +114,9 @@ export function Product({ product, preview = false }) {
         <p className="price">{product.price ? money(product.price, language) : t('Ár nincs megadva')} <small>{product.isAdminProduct ? t('Bruttó ár / db') : t('Bruttó mintaár / db')}</small></p>
         <form className="product-options" action={siteUrl(orderUrl(product))} method="get" onSubmit={preview ? e => e.preventDefault() : undefined}>
           <h2>{t("Rendelési lehetőségek")}</h2>
-          <div className="product-option">
-            <strong>{t("Szín")}</strong>
-            {variants.length ? <select aria-label={t("Színváltozat")} value={variantIndex} onChange={e => setVariantIndex(Number(e.target.value))}>{variants.map((item, index) => <option key={item.code} value={index}>{item.color_name}</option>)}</select> : <span className="product-color"><span aria-hidden="true" style={{ backgroundColor: selected?.color_hex || product.swatch }} />{product.color}</span>}
-          </div>
+          {variants.length ? <VariantPicker variants={variants} value={selected?.code || ''}
+            onChange={code => setVariantIndex(variants.findIndex(item => item.code === code))} />
+            : <div className="product-option"><strong>{t("Szín")}</strong><span className="product-color"><span aria-hidden="true" style={{ backgroundColor: product.swatch }} />{product.color}</span></div>}
           <div className="product-option fine">
             <strong>{t("Garancia és kiegészítők")}</strong>
             <span className="muted">{t("A választható opciók az éles induláskor lesznek elérhetők.")}</span>
@@ -124,7 +124,7 @@ export function Product({ product, preview = false }) {
           <label className="product-option product-quantity">{t("Mennyiség")}<input name="mennyiseg" type="number" min="1" max="99" step="1" defaultValue="1" required />
           </label>
           <button className="button" type="submit">{t("Megrendelem")}</button>
-          <p className="fine muted">{t("Próbarendelés · banki átutalás")}</p>
+          <p className="fine muted">{t("Rendelés · banki átutalás")}</p>
         </form>
       </div>
       <ProductDetails product={product} />

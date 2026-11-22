@@ -80,3 +80,10 @@ Mindkét előnézet az aktuális nyelvet és a még nem mentett adatokat mutatja
 A terméklistában külön HU és DE állapot látszik, az állapotszűrő nyelve kiválasztható, a keresés mindkét nyelv nevét figyeli. A modellneveket és szövegeket az admin nem fordítja automatikusan: a német tartalmat külön kell megadni.
 
 A landing a nyelvhelyes publikus API-ra van kötve: a kiválasztott nyelven publikált termékek jelennek meg, a piszkozatok nem.
+
+
+## Rendelések
+
+A fejléc **Rendelések** menüpontja a `/admin/rendelesek/` oldalra vezet. A belépett adminok itt láthatják a rendelés idejét (budapesti idő), a vevőt, terméket, változatot, mennyiséget, összeget és állapotot. Keresés, nyelvi és állapotszűrés, valamint lapozás segíti a listázást. A **Megnyitás** a mentett rendelés teljes adatlapját mutatja, beleértve a kapcsolattartási, szállítási és számlázási adatokat. A webszerver ezt az útvonalat is az admin `index.html` fájljára irányítsa (a mellékelt Nginx-konfiguráció ezt már kezeli).
+
+A funkcióhoz a backend `migrations/002-orders.sql` migrációja szükséges. Brevo-beállítás nem kell a mentéshez és a listához.

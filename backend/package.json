@@ -8,7 +8,9 @@
     "owner:create": "node --env-file-if-exists=.env dist/create-owner.js",
     "sessions:prune": "node --env-file-if-exists=.env dist/prune-sessions.js",
     "test:images": "npm run build && node --test test/images.test.mjs",
-    "test:integration": "npm run build && node --env-file-if-exists=.env.test --test test/mysql.test.mjs"
+    "test:integration": "npm run build && node --env-file-if-exists=.env.test --test test/mysql.test.mjs",
+    "emails:send": "node --env-file-if-exists=.env dist/send-order-emails.js",
+    "test:orders": "npm run build && node --test test/orders.test.mjs test/order-email.test.mjs"
   },
   "type": "module",
   "engines": {

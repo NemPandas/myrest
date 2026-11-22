@@ -15,6 +15,15 @@ const env = z.object({
   DB_NAME: z.string().min(1),
   DB_USER: z.string().min(1),
   DB_PASSWORD: z.string().min(1),
+  BREVO_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.email().optional(),
+  EMAIL_FROM_NAME: z.string().default('MyRest'),
+  ORDER_NOTIFY_EMAIL: z.email().optional(),
+  BANK_BENEFICIARY: z.string().optional(),
+  BANK_ACCOUNT: z.string().optional(),
+  BANK_BIC: z.string().optional(),
+  ORDER_SHIPPING_HUF: z.coerce.number().int().nonnegative().default(0),
+  ORDER_SHIPPING_EUR: z.coerce.number().nonnegative().default(0),
   DB_TLS_CA_FILE: z.string().min(1).optional(),
 }).parse(process.env);
 
@@ -35,6 +44,9 @@ for (const value of allowedOrigins) {
 }
 
 export const config = {
+  email: { apiKey: env.BREVO_API_KEY, from: env.EMAIL_FROM, name: env.EMAIL_FROM_NAME, notify: env.ORDER_NOTIFY_EMAIL },
+  bank: { beneficiary: env.BANK_BENEFICIARY, account: env.BANK_ACCOUNT, bic: env.BANK_BIC },
+  shipping: { hu: env.ORDER_SHIPPING_HUF, de: env.ORDER_SHIPPING_EUR },
   allowedOrigins,
   host: env.HOST,
   port: env.PORT,

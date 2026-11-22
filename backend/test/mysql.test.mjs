@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { spawnSync } from 'node:child_process';
@@ -125,6 +126,34 @@ test('admin and catalog API against an empty MySQL test schema', async t => {
   await mutate('/publish', 'POST', { version: 1 });
   assert.equal((await request('/products?limit=1')).data.items[0].cover.url, '/media/chair.webp');
   assert.equal((await request('/products/test-chair')).data.version, undefined);
+  await t.test('persisted orders are searchable and visible only to authenticated admins', async () => {
+    const { data: settings } = await request('/orders/config');
+    const input = { requestKey: randomUUID(), language: 'hu', slug: product.slug, variantCode: 'GRAPHITE',
+      quantity: 2, expectedTotal: product.gross_price_huf * 2 + settings.shipping.hu,
+      name: 'Rendelés Teszt', email: 'order-customer@example.test', phone: '+3612345678',
+      shippingAddress: { zip: '1111', city: 'Budapest', address: 'Teszt utca 1.' },
+      billingAddress: { zip: '2222', city: 'Másik város', address: 'Számla utca 2.' } };
+    const { data: created } = await request('/orders', { method: 'POST', body: input }, 201);
+    const { data: repeated } = await request('/orders', { method: 'POST', body: input }, 201);
+    assert.equal(repeated.id, created.id);
+    await request('/orders', { method: 'POST', body: { ...input, name: 'Changed' } }, 409);
+    await request('/orders', { method: 'POST', body: { ...input, requestKey: randomUUID(), expectedTotal: 1 } }, 409);
+    await request('/admin/orders', {}, 401);
+    await request('/admin/orders/' + created.id, {}, 401);
+    const { data: list } = await request('/admin/orders?q=order-customer&language=hu&status=awaiting_transfer', { cookie: editor });
+    assert.equal(list.items.length, 1); assert.equal(list.items[0].id, created.id);
+    assert.equal(list.hasMore, false);
+    assert.equal((await request('/admin/orders?q=does-not-match', { cookie: editor })).data.items.length, 0);
+    assert.equal((await request('/admin/orders?language=de', { cookie: editor })).data.items.length, 0);
+    const { data: record } = await request('/admin/orders/' + created.id, { cookie: owner });
+    assert.equal(record.snapshot.name, input.name); assert.equal(record.snapshot.product, product.name);
+    assert.equal(record.snapshot.quantity, 2); assert.equal(record.snapshot.total, input.expectedTotal);
+    assert.equal(record.snapshot.variantCode, 'GRAPHITE');
+    assert.ok(record.snapshot.billingAddress.includes('Másik város'));
+    assert.ok(Number.isFinite(Date.parse(record.created_at)));
+    assert.equal((await rows(pool, 'SELECT id FROM orders WHERE request_key = ?', [input.requestKey])).length, 1);
+  });
+
   await mutate('', 'PATCH', { version: 2, images: [] }, 422);
   await mutate('', 'PATCH', { version: 2, variants: [] }, 422);
   const unchanged = await details();
@@ -196,6 +225,18 @@ test('admin and catalog API against an empty MySQL test schema', async t => {
     await action('unpublish', 4, 'hu');
     await request('/products/bilingual-chair?lang=hu', {}, 404);
     await request('/products/bilingual-chair?lang=de');
+    const { data: orderSettings } = await request('/orders/config');
+    const { data: germanOrder } = await request('/orders', { method: 'POST', body: {
+      requestKey: randomUUID(), language: 'de', slug: 'bilingual-chair', variantCode: 'GRAPHITE', quantity: 1,
+      expectedTotal: german.gross_price_eur + orderSettings.shipping.de,
+      name: 'Deutscher Kunde', email: 'german-order@example.test', phone: '+4912345678',
+      shippingAddress: { zip: '10115', city: 'Berlin', address: 'Teststraße 1' },
+      billingAddress: { zip: '10115', city: 'Berlin', address: 'Teststraße 1' },
+    } }, 201);
+    const { data: germanRecord } = await request('/admin/orders/' + germanOrder.id, { cookie: editor });
+    assert.equal(germanRecord.snapshot.product, german.name);
+    assert.equal(germanRecord.snapshot.currency, 'EUR');
+    assert.equal(germanRecord.snapshot.variant, 'Graphit');
     await edit({ version: 5, variants: [{ code: 'NEW', color_name: '' }] }, 422);
     await action('unpublish', 4, 'de', 409);
     const { data: list } = await request('/admin/products?language=de&status=published&q=Deutscher', { cookie: editor });

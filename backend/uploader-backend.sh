@@ -28,7 +28,7 @@ fi
 # On first connection OpenSSH asks you to verify the server host key.
 ssh "${auth[@]}" "$user@$server" "mkdir -p '$remote'"
 
-scp "${auth[@]}" -r dist "$user@$server:$remote/"
+scp "${auth[@]}" -r migrations dist "$user@$server:$remote/"
 scp "${auth[@]}" package.json package-lock.json schema.sql .env.example "$user@$server:$remote/"
 
 # Load NVM explicitly: noninteractive SSH sessions do not load it automatically.

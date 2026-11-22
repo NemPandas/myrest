@@ -181,5 +181,22 @@
   "Termékek betöltése…": "Produkte werden geladen…",
   "A termékek most nem tölthetők be.": "Die Produkte können derzeit nicht geladen werden.",
   "Kérjük, próbálja újra.": "Bitte versuchen Sie es erneut.",
-  "Újrapróbálás": "Erneut versuchen"
+  "Újrapróbálás": "Erneut versuchen",
+  "Rendelés rögzítve": "Bestellung erfasst",
+  "Rendelés": "Bestellung",
+  "Átutalásra vár": "Warten auf Überweisung",
+  "Rendelését rögzítettük. A visszaigazolást és az utalási adatokat emailben küldjük.": "Ihre Bestellung wurde erfasst. Die Bestätigung und Bankdaten erhalten Sie per E-Mail.",
+  "Az online rendelés jelenleg nem elérhető.": "Online-Bestellungen sind derzeit nicht verfügbar.",
+  "A rendelést nem sikerült visszaigazolni. Próbálja újra ugyanazokkal az adatokkal.": "Die Bestellung konnte nicht bestätigt werden. Bitte versuchen Sie es mit denselben Daten erneut.",
+  "Szállítás": "Versand",
+  "Az utalási adatok emailben érkeznek.": "Die Bankdaten erhalten Sie per E-Mail.",
+  "Küldés folyamatban…": "Wird gesendet…",
+  "Rendelés beküldése": "Bestellung absenden",
+  "Rendelését rögzítettük. A további részletekkel hamarosan jelentkezünk a megadott elérhetőségeken.": "Ihre Bestellung wurde erfasst. Wir melden uns in Kürze über die angegebenen Kontaktdaten mit weiteren Informationen.",
+  "A rendelés rögzítése után a fizetés részleteit külön egyeztetjük.": "Nach Eingang der Bestellung stimmen wir die Zahlungsdetails gesondert mit Ihnen ab.",
+  "Rendelés · banki átutalás": "Bestellung · Banküberweisung",
+  "A rendelés fizetési módja banki átutalás. A fizetés részleteit a rendelés rögzítése után egyeztetjük.": "Die Zahlung erfolgt per Banküberweisung. Die Zahlungsdetails stimmen wir nach Eingang der Bestellung mit Ihnen ab.",
+  "Rendelés – ": "Bestellung – ",
+  "MyRest rendelés banki átutalásos fizetéssel.": "MyRest-Bestellung mit Zahlung per Banküberweisung.",
+  "A fizetési mód banki átutalás. A rendelés rögzítése után a megadott elérhetőségeken egyeztetjük a fizetés részleteit.": "Die Zahlung erfolgt per Banküberweisung. Nach Eingang der Bestellung stimmen wir die Zahlungsdetails über die angegebenen Kontaktdaten mit Ihnen ab."
 }

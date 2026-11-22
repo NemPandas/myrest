@@ -1,3 +1,5 @@
+import { adminOrders } from './admin-orders.js';
+import { orders } from './orders.js';
 import { localeRoutes } from './locale.js';
 import cookieParser from 'cookie-parser';
 import express from 'express';
@@ -27,6 +29,7 @@ app.get('/api/health', async (_req, res) => {
   }
 });
 
+app.use('/api/orders', orders);
 app.use('/api/products', publicProducts);
 app.use('/api/media/images', publicImages);
 
@@ -39,6 +42,7 @@ app.use('/api/admin', (req, res, next) => {
 }, express.json({ limit: '512kb' }), cookieParser());
 
 app.use('/api/admin/auth', authRoutes);
+app.use('/api/admin/orders', adminOrders);
 app.use('/api/admin/products', adminProducts);
 app.use('/api/admin/images', adminImages);
 app.use('/api/admin', ownerRoutes);

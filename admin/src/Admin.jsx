@@ -1,3 +1,4 @@
+import { Orders } from './Orders.jsx';
 import { LocaleProvider } from '../../shared/I18nContext.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -230,6 +231,7 @@ function InviteForm() {
   </section>;
 }
 export function Admin() {
+  const ordersPage = /^\/admin\/rendelesek(?:\/|$)/.test(location.pathname);
   const [admin, setAdmin] = useState(null); const [checking, setChecking] = useState(true); const [error, setError] = useState('');
   const [items, setItems] = useState([]); const [loading, setLoading] = useState(false); const [editor, setEditor] = useState(null);
   const [filterLanguage, setFilterLanguage] = useState('hu');
@@ -237,17 +239,17 @@ export function Admin() {
   const [query, setQuery] = useState(''); const [status, setStatus] = useState(''); const [offset, setOffset] = useState(0); const [refresh, setRefresh] = useState(0);
   useEffect(() => { api('/auth/me').then(setAdmin).catch(e => { if (e.status !== 401) setError(e.message); }).finally(() => setChecking(false)); }, []);
   useEffect(() => {
-    if (!admin) return; let active = true; setLoading(true); setError('');
+    if (!admin || ordersPage) return; let active = true; setLoading(true); setError('');
     const params = new URLSearchParams({ limit: '20', offset: String(offset), q: query, language: filterLanguage }); if (status) params.set('status', status);
     api('/products?' + params).then(data => { if (active) setItems(data.items); }).catch(e => { if (active) setError(e.message); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [admin, query, status, offset, refresh, filterLanguage]);
+  }, [admin, query, status, offset, refresh, filterLanguage, ordersPage]);
   async function open(item) { setError(''); setLoading(true); try { setEditor(await api('/products/' + item.id)); } catch (e) { setError(e.message); } finally { setLoading(false); } }
   async function logout() { try { await send('/auth/logout', {}); setAdmin(null); setEditor(null); setShowInvite(false); } catch (e) { setError(e.message); } }
   if (checking) return <main className="admin-auth" role="status">Munkamenet ellenőrzése…</main>;
   if (!admin) return <Auth onLogin={setAdmin} initialError={error} />;
-  return <div className="admin-shell"><header className="admin-header"><a className="brand" href={siteUrl('/')}>MyRest</a><strong>Termékkezelés</strong><span>{admin.email}</span>{!editor && <button onClick={logout}>Kijelentkezés</button>}</header>
-    <main className="admin-main">{editor ? <Editor key={editor.id || 'new'} initial={editor.id ? editor : null} onBack={() => setEditor(null)} onSaved={() => setRefresh(value => value + 1)} /> : <>
+  return <div className="admin-shell"><header className="admin-header"><a className="brand" href={siteUrl('/')}>MyRest</a><strong>Adminisztráció</strong>{!editor && <nav className="admin-nav" aria-label="Admin navigáció"><a href="/admin/" aria-current={!ordersPage ? "page" : undefined}>Termékek</a><a href="/admin/rendelesek/" aria-current={ordersPage ? "page" : undefined}>Rendelések</a></nav>}<span>{admin.email}</span>{!editor && <button onClick={logout}>Kijelentkezés</button>}</header>
+    <main className="admin-main">{ordersPage ? <Orders api={api} /> : editor ? <Editor key={editor.id || 'new'} initial={editor.id ? editor : null} onBack={() => setEditor(null)} onSaved={() => setRefresh(value => value + 1)} /> : <>
       <div className="admin-title"><div><h1>Termékek</h1><p>Hozd létre és szerkeszd a kínálatot.</p></div><div className="admin-actions">{admin.role === 'owner' && <button type="button" aria-expanded={showInvite} aria-controls="admin-invite-panel" onClick={() => setShowInvite(value => !value)}>Meghívó készítése</button>}<button className="button" onClick={() => setEditor({})}>Új termék</button></div></div>
       {admin.role === 'owner' && showInvite && <div id="admin-invite-panel"><InviteForm /></div>}
       <div className="admin-filters"><label>Keresés<input type="search" placeholder="Név, modellkód vagy URL" value={query} onChange={e => { setQuery(e.target.value); setOffset(0); }} /></label><label>Állapot nyelve<select value={filterLanguage} onChange={e => { setFilterLanguage(e.target.value); setOffset(0); }}><option value="hu">Magyar</option><option value="de">Német</option></select></label><label>Állapot<select value={status} onChange={e => { setStatus(e.target.value); setOffset(0); }}><option value="">Összes</option><option value="draft">Piszkozat</option><option value="published">Közzétéve</option></select></label></div>
