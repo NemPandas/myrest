@@ -4,6 +4,9 @@ import { createPortal } from 'react-dom';
 import { Product, ProductCard } from '../../shared/ProductViews.jsx';
 import { money, siteUrl } from '../../shared/catalog.js';
 
+const normalizeVariantCode = value => value.normalize('NFD').replace(/\p{M}/gu, '')
+  .replace(/ß/g, 'ss').trim().replace(/[^A-Za-z0-9_-]+/g, '-')
+  .replace(/[-_]{2,}/g, '-').replace(/^[-_]+|[-_]+$/g, '').toUpperCase();
 const registrationEnabled = import.meta.env.VITE_ADMIN_REGISTRATION !== 'false';
 async function api(path, options = {}) {
   let response;
@@ -13,7 +16,7 @@ async function api(path, options = {}) {
   const body = response.status === 204 ? null : await response.json().catch(() => null);
   if (response.ok && response.status !== 204 && !body) throw new Error('Az API nem adott JSON-választ. Ellenőrizd a backend és a proxy beállítását.');
   if (!response.ok) {
-    const fields = body?.error?.fields?.map(item => item.path.join('.') + ': ' + item.message).join(' · ');
+    const fields = body?.error?.fields?.map(item => (item.path[0] === 'variants' && item.path[2] === 'code' ? (Number(item.path[1]) + 1) + '. színváltozat kódja' : item.path.join('.')) + ': ' + item.message).join(' · ');
     const error = new Error(fields || body?.error?.message || 'A kérés sikertelen. Ellenőrizd, hogy fut-e a backend.');
     error.status = response.status; throw error;
   }
@@ -181,8 +184,8 @@ function Editor({ initial, onSaved, onBack }) {
       {view.images.map((item, i) => <div className="admin-repeat" key={i}><img className="admin-thumb" src={item.url} alt={item.alt_text} /><label>Kép URL<input required value={item.url} onChange={e => update('images', i, 'url', e.target.value)} maxLength={2048} /></label><label>Kép leírása<input value={item.alt_text} onChange={e => update('images', i, 'alt_text', e.target.value)} maxLength={255} /></label>{controls('images', i)}</div>)}
       <div className="admin-actions"><label className="admin-upload">{uploading ? 'Feltöltés…' : 'Kép feltöltése'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={upload} /></label><button type="button" onClick={() => change('images', [...view.images, { url: '', alt_text: '' }])}>Kép hozzáadása URL-lel</button></div>
     </fieldset>
-    <fieldset disabled={busy}><legend>Színváltozatok</legend>{view.variants.map((item, i) => <div className="admin-repeat" key={i}>
-      <label>Változatkód<input required maxLength={80} pattern="[A-Za-z0-9]+([-_][A-Za-z0-9]+)*" value={item.code} onChange={e => update('variants', i, 'code', e.target.value)} /></label>
+    <fieldset disabled={busy}><legend>Színváltozatok</legend><p>A változatkód közös azonosító, például GRAFIT vagy FEHER-01. Az ékezeteket elhagyjuk, a szóközöket kötőjelre cseréljük. Minden változat kódja legyen egyedi.</p>{view.variants.map((item, i) => <div className="admin-repeat" key={i}>
+      <label>Változatkód<input required maxLength={80} placeholder="pl. GRAFIT vagy FEHER-01" value={item.code} onChange={e => update('variants', i, 'code', e.target.value)} onBlur={e => update('variants', i, 'code', normalizeVariantCode(e.target.value))} /></label>
       <label>Szín neve<input maxLength={100} value={item.color_name} onChange={e => update('variants', i, 'color_name', e.target.value)} /></label>
       <label>Színkód<input type="color" value={item.color_hex || '#444444'} onChange={e => update('variants', i, 'color_hex', e.target.value)} /></label>
       <label className="admin-check"><input type="checkbox" checked={item.active} onChange={e => update('variants', i, 'active', e.target.checked)} />Aktív</label>{controls('variants', i)}</div>)}

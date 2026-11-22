@@ -15,8 +15,15 @@ const image = z.strictObject({
   sort_order: unsigned.optional(),
 });
 
+export const normalizeVariantCode = (value: string) => value.normalize('NFD').replace(/\p{M}/gu, '')
+  .replace(/ß/g, 'ss').trim().replace(/[^A-Za-z0-9_-]+/g, '-')
+  .replace(/[-_]{2,}/g, '-').replace(/^[-_]+|[-_]+$/g, '').toUpperCase();
+const variantCode = z.string().trim().max(80, 'A változatkód legfeljebb 80 karakter lehet.')
+  .transform(normalizeVariantCode).pipe(z.string().min(1, 'Adj meg egy változatkódot, például GRAFIT vagy FEHER-01.')
+    .regex(/^[A-Z0-9]+(?:[-_][A-Z0-9]+)*$/, 'A változatkód betűket és számokat tartalmazzon, például GRAFIT vagy FEHER-01.'));
+
 const variant = z.strictObject({
-  code: text(80).regex(/^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$/).toUpperCase(),
+  code: variantCode,
   color_name: z.string().trim().max(100),
   color_hex: z.string().regex(/^#[a-fA-F0-9]{6}$/).nullable().default(null),
   sort_order: unsigned.optional(),
@@ -40,7 +47,7 @@ export const translationBody = z.strictObject({
   seo_title: optionalText(180),
   seo_description: optionalText(320),
   image_alts: z.array(z.strictObject({ url: imageUrl, alt_text: text(255).nullable() })).max(100).default([]),
-  variant_names: z.array(z.strictObject({ code: text(80).toUpperCase(), color_name: text(100).nullable() })).max(100).default([]),
+  variant_names: z.array(z.strictObject({ code: variantCode, color_name: text(100).nullable() })).max(100).default([]),
 }).superRefine((value, ctx) => {
   if (new Set(value.image_alts.map(item => item.url)).size !== value.image_alts.length) ctx.addIssue({ code: 'custom', message: 'A kép URL-eknek egyedieknek kell lenniük.', path: ['image_alts'] });
   if (new Set(value.variant_names.map(item => item.code)).size !== value.variant_names.length) ctx.addIssue({ code: 'custom', message: 'A változatkódoknak egyedieknek kell lenniük.', path: ['variant_names'] });

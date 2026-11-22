@@ -91,7 +91,7 @@ export function Product({ product, preview = false }) {
   const variants = product.variants?.filter(item => item.active !== false && !item.disabled_at) || [];
   const selected = variants[variantIndex];
   return <div className="wrap inner">
-    <nav aria-label={t("Útvonal")} className="breadcrumb"><a href={siteUrl('/#masszazsfotelek')} onClick={preview ? e => e.preventDefault() : undefined}>{t("Masszázsfotelek")}</a><span> / {product.name}</span></nav>
+    <nav aria-label={t("Útvonal")} className="breadcrumb"><a href={siteUrl('/masszazsfotelek/')} onClick={preview ? e => e.preventDefault() : undefined}>{t("Masszázsfotelek")}</a><span> / {product.name}</span></nav>
     <div className="product-grid">
       <section className="product-gallery" aria-label={t("Termékgaléria")}>
         <div className="detail-photo">{photo(product, view) ? <img src={photo(product, view)} width="512" height="512"

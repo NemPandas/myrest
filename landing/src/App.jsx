@@ -1,6 +1,7 @@
 import { getLocale, t } from '../../shared/i18n.js';
 import { Product, ProductCard } from '../../shared/ProductViews.jsx';
 import React, { useEffect, useRef, useState } from 'react';
+import { Catalog } from './Catalog.jsx';
 import { LanguageSwitcher } from './LanguageSwitcher.jsx';
 import { money, orderUrl, photo, getProducts, productUrl, siteUrl } from './catalog.js';
 
@@ -11,7 +12,7 @@ function Brand() {
 }
 
 function NavLinks() {
-  return <><a href={siteUrl('/#masszazsfotelek')}>{t("Masszázsfotelek")}</a><a href={siteUrl('/#utmutato')}>{t("Választási útmutató")}</a>
+  return <><a href={siteUrl('/masszazsfotelek/')}>{t("Masszázsfotelek")}</a><a href={siteUrl('/#utmutato')}>{t("Választási útmutató")}</a>
     <a href={siteUrl('/#gyik')}>{t("GYIK")}</a><a href={siteUrl('/#kapcsolat')}>{t("Kapcsolat")}</a></>;
 }
 
@@ -22,9 +23,11 @@ function Layout({ children, path }) {
     <header className="header">
       <div className="wrap header-row">
         <Brand />
-        <LanguageSwitcher path={path} />
         <nav className="desktop-nav" aria-label={t("Fő navigáció")}><NavLinks /></nav>
-        <a className="header-action" href={siteUrl('/#masszazsfotelek')}>{t("Fotelek felfedezése")}</a>
+        <div className="header-actions">
+          <LanguageSwitcher path={path} />
+          <a className="header-action" href={siteUrl('/masszazsfotelek/')}>{t("Fotelek felfedezése")}</a>
+        </div>
         <button className="menu-toggle" aria-expanded={menuOpen} aria-controls="mobile-nav" onClick={() => setMenuOpen(!menuOpen)}>{t("Menü")}</button>
       </div>
       <div className="mobile-menu" data-open={menuOpen} inert={menuOpen ? undefined : ''}>
@@ -95,8 +98,8 @@ function Home() {
     </section>
     <section className="wrap section" id="masszazsfotelek">
       <div className="section-head" data-reveal=""><div><h2>{t("Kiemelt masszázsfotelek")}</h2></div>
-        <p>{t("Három modell, különböző masszázsmechanikával. Nézze meg, melyik felel meg az igényeinek.")}</p></div>
-      <div className="catalog">{getProducts().map(product => <ProductCard product={product} key={product.slug} />)}</div>
+        <p>{t("Válasszon a közzétett modellek közül, és nézze meg, melyik felel meg az igényeinek.")}</p></div>
+      <div className="catalog">{getProducts().slice(0, 3).map(product => <ProductCard product={product} key={product.slug} />)}</div>{!getProducts().length && <p role="status">{t('Ezen a nyelven még nincs közzétett termék.')}</p>}
     </section>
     <section className="guide" id="utmutato"><div className="wrap guide-grid" data-reveal="">
       <div><h2>{t("Mire figyeljen a választásnál?")}</h2>
@@ -167,7 +170,7 @@ function Order({ product }) {
         <div><dt>{t("Kedvezményezett")}</dt><dd>{t("MyRest (minta)")}</dd></div>
         <div><dt>{t("Bankszámlaszám")}</dt><dd>{t("Éles konfigurációból kerül ide")}</dd></div>
         <div><dt>{t("Közlemény")}</dt><dd>{order.id}</dd></div></dl>
-      <a className="button" href={siteUrl('/#masszazsfotelek')}>{t("Vissza a fotelekhez")}</a>
+      <a className="button" href={siteUrl('/masszazsfotelek/')}>{t("Vissza a fotelekhez")}</a>
     </section> : <>
       <p className="demo-note">{t("Bemutatófelület. Kérjük, használjon mintaadatokat. Az űrlap helyben működik.")}</p>
       <form className="checkout" method="post" onSubmit={submit}>
@@ -198,6 +201,9 @@ function Order({ product }) {
 export function App({ page, path = "/" }) {
   return <Layout path={path}>
     {page.kind === 'home' && <Home />}
+    {page.kind === 'loading' && <div className="wrap inner" role="status">{t('Termékek betöltése…')}</div>}
+    {page.kind === 'error' && <div className="wrap inner" role="alert"><h1>{t('A termékek most nem tölthetők be.')}</h1><p>{t('Kérjük, próbálja újra.')}</p><button className="button" onClick={page.retry}>{t('Újrapróbálás')}</button></div>}
+    {page.kind === 'catalog' && <Catalog />}
     {page.kind === 'product' && <Product product={page.product} />}
     {page.kind === 'order' && <Order product={page.product} />}
     {page.kind === 'missing' && <div className="wrap inner"><h1>{t("Ez az oldal nem található.")}</h1><a className="button" href={siteUrl('/')}>{t("Vissza a kezdőlapra")}</a></div>}

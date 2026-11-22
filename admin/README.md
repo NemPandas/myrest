@@ -24,7 +24,7 @@ A `VITE_ADMIN_REGISTRATION=false` buildváltozó elrejti a regisztrációt és a
 - Közzététel csak már mentett, változatlan adatokkal kezdeményezhető. A backend ellenőrzi a publikálhatóságot és a szerkesztési verziót. A közzétett termék piszkozatba visszavonható.
 - A szerkesztő figyelmeztet a nem mentett adatok elhagyására.
 
-A publikus landing továbbra is a projektútmutatóban előírt mock katalógust használja. Az admin mentései a valódi backendhez mennek; a publikus katalógus API-ra átállítása külön lépés. A szállítás, garancia és rendelés blokkjai a jelenlegi vásárlói prototípus tartalmát mutatják.
+A publikus landing az adminban nyelvenként közzétett termékeket az élő API-ból tölti be. A szállítás, garancia és rendelés blokkjai a jelenlegi vásárlói prototípus tartalmát mutatják.
 
 Élesben az `admin/dist` tartalmát az `/admin/` útvonalon szolgáld ki; az `/admin/*` kliensoldali útvonalak essenek vissza az `/admin/index.html` fájlra. A landing külön buildjét a webhely gyökerében szolgáld ki, az `/api` kéréseket pedig továbbítsd a backendnek. A backend `APP_ORIGIN` egyezzen a közös HTTPS-originnel. Az admin buildje az `admin` könyvtárban: `npm run build`.
 
@@ -79,4 +79,4 @@ Mindkét előnézet az aktuális nyelvet és a még nem mentett adatokat mutatja
 
 A terméklistában külön HU és DE állapot látszik, az állapotszűrő nyelve kiválasztható, a keresés mindkét nyelv nevét figyeli. A modellneveket és szövegeket az admin nem fordítja automatikusan: a német tartalmat külön kell megadni.
 
-A landing továbbra is a meglévő mock katalógust használja. A mentett termékek nyelvhelyes publikus API-ja rendelkezésre áll, a landing élő katalógusra kötése külön lépés.
+A landing a nyelvhelyes publikus API-ra van kötve: a kiválasztott nyelven publikált termékek jelennek meg, a piszkozatok nem.
